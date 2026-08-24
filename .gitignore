@@ -1,0 +1,36 @@
+# Feynlist .gitignore
+
+# Environment
+.env
+*.env
+
+# Database (contains user data — never commit)
+*.db
+*.db-shm
+*.db-wal
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+dist/
+build/
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/

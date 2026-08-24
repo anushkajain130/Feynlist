@@ -1,0 +1,114 @@
+"""
+Analytics Pipeline
+==================
+Orchestrates a full daily analytics computation:
+  1. Load tasks for today
+  2. Load yesterday's metrics for EWM weighting
+  3. Run all metric formulas
+  4. Persist results to daily_analytics table
+  5. Update hourly_points for tasks completed this hour
+"""
+
+from __future__ import annotations
+
+from datetime import date, datetime
+from typing import Optional
+
+from loguru import logger
+
+from core.models import DailyMetrics, Task
+from data.repositories.task_repo import task_repo
+from data.repositories.analytics_repo import analytics_repo
+from analytics.metrics import (
+    AlertnessMetric,
+    DisciplineMetric,
+    PSHoursMetric,
+    AuraMetric,
+    RetentionStreakMetric,
+    PointsMetric,
+)
+
+
+class AnalyticsPipeline:
+    """
+    Runs the complete analytics computation for a given date.
+    Idempotent — safe to call multiple times; each call overwrites the record.
+    """
+
+    async def run(self, target_date: Optional[date] = None) -> DailyMetrics:
+        """
+        Full pipeline: load → compute → persist → return.
+        Defaults to today if no date given.
+        """
+        if target_date is None:
+            target_date = date.today()
+
+        logger.info(f"Running analytics pipeline for {target_date}")
+
+        # 1. Load tasks for the target date
+        tasks = await task_repo.get_tasks_for_date(target_date)
+
+        if not tasks:
+            logger.warning(f"No tasks found for {target_date}. Skipping analytics.")
+            return DailyMetrics(date=target_date)
+
+        # 2. Load yesterday's metrics for EWM weighting
+        from datetime import timedelta
+        yesterday_date = target_date - timedelta(days=1)
+        yesterday = await analytics_repo.get_metrics_for_date(yesterday_date)
+
+        yesterday_streak = yesterday.retention_streak if yesterday else 0
+
+        # Fetch existing metrics for today to preserve the relapse status
+        existing = await analytics_repo.get_metrics_for_date(target_date)
+        relapsed = existing.relapsed if existing else False
+
+        # 3. Compute all metrics
+        now = datetime.now().time()
+
+        alertness = AlertnessMetric.compute(tasks, yesterday, now)
+        discipline = DisciplineMetric.compute(tasks, yesterday, now)
+        ps_hrs = PSHoursMetric.compute(tasks)
+        retention_streak = RetentionStreakMetric.compute(relapsed, yesterday_streak)
+        aura = AuraMetric.compute(discipline, ps_hrs, retention_streak)
+        total_points = PointsMetric.compute_total(tasks)
+        tasks_completed = sum(1 for t in tasks if t.completed)
+
+        # 4. Assemble metrics object
+        metrics = DailyMetrics(
+            date=target_date,
+            alertness=alertness,
+            discipline=discipline,
+            ps_hrs=ps_hrs,
+            aura=aura,
+            retention_streak=retention_streak,
+            total_points=total_points,
+            tasks_completed=tasks_completed,
+            tasks_total=len(tasks),
+            relapsed=relapsed,
+        )
+
+        # 5. Persist (single write — fixes V0 double-write bug)
+        await analytics_repo.upsert_metrics(metrics)
+
+        logger.info(
+            f"Analytics for {target_date}: "
+            f"discipline={discipline:.1f}% alertness={alertness:.1f}% "
+            f"ps={ps_hrs:.1f}h aura={aura:.2f} streak={retention_streak}d"
+        )
+
+        return metrics
+
+    async def log_hourly_completion(self, task: Task) -> None:
+        """
+        Call this when a subtask is toggled or task completed.
+        Logs the earned points to the current hour's bucket.
+        """
+        current_hour = datetime.now().hour
+        earned = PointsMetric.compute_for_task(task)
+        if earned > 0:
+            await analytics_repo.log_hourly_point(date.today(), current_hour, earned)
+
+
+# Singleton
+pipeline = AnalyticsPipeline()
