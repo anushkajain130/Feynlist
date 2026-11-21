@@ -4,13 +4,13 @@ import { useState, useCallback } from "react";
 import { format } from "date-fns";
 import { CheckCircle2, Circle, Clock, Zap, Brain, Target, Flame, Plus, Trash2, Calendar, Sparkles, Check, X, ChevronDown, ChevronUp } from "lucide-react";
 import { api, Task, TaskListResponse, DailyMetrics } from "@/lib/api";
-import BackendStatus from "@/components/BackendStatus";
 import dayTemplate from "@/lib/dayTemplate.json";
 
 interface Props {
   initialTasks: TaskListResponse | null;
   initialMetrics: DailyMetrics | null;
-  backendUnreachable?: boolean;
+  /** Rendered under the page header (demo panel, nudges). */
+  topSlot?: React.ReactNode;
 }
 
 interface EditableTask {
@@ -253,9 +253,15 @@ function TaskRow({
   );
 }
 
-export default function DashboardClient({ initialTasks, initialMetrics, backendUnreachable = false }: Props) {
+export default function DashboardClient({ initialTasks, initialMetrics, topSlot }: Props) {
   const [taskData, setTaskData] = useState(initialTasks);
   const [metrics, setMetrics] = useState(initialMetrics);
+
+  // When the page reloads data (e.g. after a demo control), adopt the new props.
+  const [seenTasks, setSeenTasks] = useState(initialTasks);
+  const [seenMetrics, setSeenMetrics] = useState(initialMetrics);
+  if (initialTasks !== seenTasks) { setSeenTasks(initialTasks); setTaskData(initialTasks); }
+  if (initialMetrics !== seenMetrics) { setSeenMetrics(initialMetrics); setMetrics(initialMetrics); }
   const [isPlanning, setIsPlanning] = useState(false);
   const [planTasks, setPlanTasks] = useState<EditableTask[]>([]);
   const [planError, setPlanError] = useState<string | null>(null);
@@ -467,7 +473,6 @@ export default function DashboardClient({ initialTasks, initialMetrics, backendU
 
   return (
     <div className="page">
-      <BackendStatus unreachable={backendUnreachable} />
       {/* Header */}
       <div className="page-header">
         <div>
@@ -536,6 +541,8 @@ export default function DashboardClient({ initialTasks, initialMetrics, backendU
           </div>
         )}
       </div>
+
+      {topSlot}
 
       {/* PLANNER INTERFACE */}
       {isPlanning ? (
@@ -913,14 +920,12 @@ export default function DashboardClient({ initialTasks, initialMetrics, backendU
           <div style={{ textAlign: "center", padding: "60px", color: "var(--text-muted)" }}>
             <Clock size={32} style={{ marginBottom: "12px", opacity: 0.4 }} />
             <div style={{ fontSize: "14px" }}>
-              {backendUnreachable ? "Your plan will appear here once the server responds" : "No tasks scheduled for today"}
+              No tasks scheduled for today
             </div>
-            {!backendUnreachable && (
-              <div style={{ fontSize: "12px", marginTop: "4px", opacity: 0.6 }}>
-                Quickly lay out your time blocks using the planner
-              </div>
-            )}
-            {!backendUnreachable && <button
+            <div style={{ fontSize: "12px", marginTop: "4px", opacity: 0.6 }}>
+              Quickly lay out your time blocks using the planner
+            </div>
+            <button
               onClick={startPlanning}
               style={{
                 marginTop: "16px",
@@ -944,7 +949,7 @@ export default function DashboardClient({ initialTasks, initialMetrics, backendU
               }}
             >
               Build Today&apos;s Schedule
-            </button>}
+            </button>
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>

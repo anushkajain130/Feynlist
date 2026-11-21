@@ -5,7 +5,6 @@ import {
   BarChart, Bar, CartesianGrid,
 } from "recharts";
 import { format, parseISO } from "date-fns";
-import BackendStatus from "@/components/BackendStatus";
 import { TrendingUp, TrendingDown, Minus, AlertTriangle, CheckCircle } from "lucide-react";
 import { DailyMetrics, WeeklySummary, BurnoutSignal } from "@/lib/api";
 
@@ -13,7 +12,6 @@ interface Props {
   history: DailyMetrics[] | null;
   weekly: WeeklySummary | null;
   burnout: BurnoutSignal | null;
-  backendUnreachable?: boolean;
 }
 
 const TOOLTIP_STYLE = {
@@ -54,7 +52,7 @@ function ChartCard({ title, children, trend }: { title: string; children: React.
   );
 }
 
-export default function AnalyticsClient({ history, weekly, burnout, backendUnreachable = false }: Props) {
+export default function AnalyticsClient({ history, weekly, burnout }: Props) {
   const chartData = (history ?? []).map(d => ({
     date: format(parseISO(d.date), "MMM d"),
     discipline: d.discipline,
@@ -66,13 +64,12 @@ export default function AnalyticsClient({ history, weekly, burnout, backendUnrea
 
   const emptyState = (
     <div style={{ height: "140px", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", fontSize: "13px" }}>
-      {backendUnreachable ? "Waiting for the server…" : "No data yet — complete some tasks first"}
+      No data yet — complete some tasks first
     </div>
   );
 
   return (
     <div className="page">
-      <BackendStatus unreachable={backendUnreachable} />
       {/* Header */}
       <div style={{ marginBottom: "32px" }}>
         <div style={{ fontSize: "12px", color: "var(--text-muted)", marginBottom: "4px", textTransform: "uppercase", letterSpacing: "0.1em" }}>

@@ -2,20 +2,12 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Send, Wifi, WifiOff, Loader2 } from "lucide-react";
-import { WS_URL, api } from "@/lib/api";
+import { wsUrl, api } from "@/lib/api";
+import { AGENTS, type AgentKey } from "@/lib/agents";
 import { format } from "date-fns";
 
 // Agent personas
-const AGENTS = {
-  freya:   { name: "Freya",   color: "#7c5cfc", emoji: "⚔️",  desc: "Direct & honest" },
-  albedo:  { name: "Albedo",  color: "#f472b6", emoji: "🎉",  desc: "Celebrates wins" },
-  anya:    { name: "Anya",    color: "#34d399", emoji: "🌸",  desc: "Warm & rest-aware" },
-  zerotwo: { name: "Zero Two",color: "#818cf8", emoji: "🎯",  desc: "Analytical" },
-  mohini:  { name: "Mohini", color: "#fbbf24", emoji: "🌿",  desc: "Calm & energy" },
-  council: { name: "Council", color: "#e8e8f0", emoji: "🏛️",  desc: "All together" },
-} as const;
 
-type AgentKey = keyof typeof AGENTS;
 
 interface ChatMessage {
   id: string;
@@ -190,7 +182,7 @@ export default function CouncilPage() {
     api.agents.tokensToday()
       .then(res => setTokensToday(res.total_tokens_today))
       .catch(e => console.error("Failed to fetch today's token usage", e));
-    const ws = new WebSocket(WS_URL);
+    const ws = new WebSocket(wsUrl());
     wsRef.current = ws;
 
     ws.onopen = () => {

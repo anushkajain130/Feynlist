@@ -3,23 +3,42 @@
  * Typed wrappers for every backend endpoint.
  */
 
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+import { getSessionId, getTimeZone, sessionHeaders } from "./session";
+
+const BASE = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/+$/, "");
 export const API_BASE = BASE;
 
-async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, { cache: "no-store" });
-  if (!res.ok) throw new Error(`GET ${path} → ${res.status}`);
+/** Error carrying the server's friendly `detail` message (never raw provider text). */
+export class ApiError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+  }
+}
+
+async function handle<T>(res: Response, label: string): Promise<T> {
+  if (!res.ok) {
+    let detail = `${label} → ${res.status}`;
+    try {
+      const body = await res.json();
+      if (typeof body?.detail === "string") detail = body.detail;
+    } catch { /* not JSON */ }
+    throw new ApiError(res.status, detail);
+  }
   return res.json();
+}
+
+async function get<T>(path: string): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, { cache: "no-store", headers: sessionHeaders() });
+  return handle<T>(res, `GET ${path}`);
 }
 
 async function post<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    headers: { "Content-Type": "application/json", ...sessionHeaders() },
+    body: JSON.stringify(body ?? {}),
   });
-  if (!res.ok) throw new Error(`POST ${path} → ${res.status}`);
-  return res.json();
+  return handle<T>(res, `POST ${path}`);
 }
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -155,11 +174,49 @@ export const api = {
       post<CouncilResponse>("/api/agents/message", { message, agent_id: agentId }),
     status: () => get<AgentStatus>("/api/agents/status"),
     tokensToday: () => get<{ total_tokens_today: number }>("/api/agents/tokens/today"),
+    nudges: (limit = 5) => get<{ nudges: Nudge[] }>(`/api/agents/nudges?limit=${limit}`),
+  },
+  demo: {
+    status: () => get<DemoStatus>("/api/demo/status"),
+    reset: () => post<{ reset: boolean }>("/api/demo/reset", {}),
+    loadSample: () => post<{ loaded_days: number }>("/api/demo/load-sample", {}),
+    trigger: (kind: DemoTrigger) => post<DemoTriggerResult>(`/api/demo/trigger/${kind}`, {}),
   },
   health: () => get<HealthResponse>("/health"),
 };
 
+// ─── Demo ─────────────────────────────────────────────────────────────────────
+
+export interface Nudge {
+  id: string;
+  agent_id: string;
+  content: string;
+  triggered_by: string;
+  model_used: string;
+  timestamp: string;
+}
+
+export interface DemoStatus {
+  demo_mode: boolean;
+  sample_data: boolean;
+  today: string;
+  notice: string | null;
+}
+
+export type DemoTrigger = "missed-task" | "complete-task" | "end-of-day" | "check-in";
+
+export interface DemoTriggerResult {
+  kind: DemoTrigger;
+  detail: string;
+  cooldowns_bypassed?: boolean;
+  messages: { id: string; agent_id: string; display_name: string; content: string; triggered_by: string | null }[];
+}
+
 // ─── WebSocket ────────────────────────────────────────────────────────────────
 
-export const WS_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000")
-  .replace("http", "ws") + "/api/agents/ws";
+/** Websocket URL carrying the session id and time zone (headers can't be set on a browser websocket). */
+export function wsUrl(): string {
+  const base = BASE.replace(/^http/, "ws");
+  const q = new URLSearchParams({ session: getSessionId(), tz: getTimeZone() });
+  return `${base}/api/agents/ws?${q.toString()}`;
+}

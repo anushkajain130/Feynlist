@@ -130,3 +130,6 @@ body {
   .plan-row > :last-child { justify-self: end; }
   .task-time { min-width: 44px !important; }
 }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { animation: spin 1s linear infinite; }
