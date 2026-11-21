@@ -43,3 +43,15 @@ Status for all entries: **New improvement prompt**. Entries are verbatim and in 
 > Then do the baseline only, with no code changes yet: install the backend and frontend dependencies, run the existing pytest suite, try npm run build in frontend/, and start both servers locally. Record the real outputs in evals/EVALS.md as Executed rows with evidence paths. Finally, verify each item in the "Known issues" and "Cut list" sections of CLAUDE.md with grep or by running the code (including whether the persona triggers INACTIVITY, LOW_ENERGY, HIGH_SCORE, PERFORMANCE_DROP and WEEK_REVIEW are ever emitted), and report which are confirmed, which are wrong, and anything else you found. Wait for my go-ahead before changing code.
 
 **What it changed:** added `prompts/PROMPTS.md`, `evals/EVALS.md` (baseline rows) and `evals/evidence/` (logs, screenshots, probe scripts). No application code changed.
+
+### C2. 2026-11-21
+
+> push
+
+**What it changed:** I pushed the two baseline commits (PROMPTS.md, EVALS.md) to `claude/dazzling-hopper-tk9c3k`. The first attempts got a 403 until the owner fixed GitHub access. No code changed.
+
+### C3. 2026-11-21
+
+> go ahead
+
+**What it changed:** pushed the baseline commits once access worked. This is also the go-ahead for code changes, which start in CLAUDE.md's order of work: issues 1–3 and 5–6, then 4 and 7–12. Each change is a separate commit, listed in the git log.
