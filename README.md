@@ -31,6 +31,33 @@ An accountability-first day planner. You plan your day in time blocks, mark each
 
 All five reply when you message them directly. "Hi council" asks all five at once.
 
+### Live AI vs. sample replies (free-tier budget)
+
+The Council is designed to run live: all five personas, plus proactive nudges. The public demo runs on a free Gemini key, so it limits live replies:
+
+- **2 live replies per browser session.** Chat and demo controls count together.
+- **A global daily cap** (`LIVE_AI_DAILY_CAP`) and a per-minute guard.
+- **Always samples:** "Council" (all five at once) and automatic nudges.
+- **No scheduled model calls.** They run only with `ENABLE_PROACTIVE_LLM=true`, for local use.
+
+Everything else, and every case where the AI is unavailable (no key, quota, error), is shown as a **pre-written sample reply**. It is always labelled "Sample reply (pre-written, not live)" and uses only the session's real numbers.
+
+### Demo mode (for evaluators)
+
+With `DEMO_MODE=true`, each browser session gets its own temporary database:
+
+- **Sample data:** about two weeks of made-up history, labelled in the UI.
+- **Separate per evaluator:** nobody sees anyone else's session.
+- **Browser timezone:** "today" and "missed" follow the evaluator's clock.
+- **"How to evaluate in 3 minutes":** a panel on the first screen.
+- **Demo controls:** fire the real proactive paths immediately, with cooldowns bypassed and labelled:
+  - missed task → Freya
+  - complete a task → Albedo
+  - end of day → Anya
+  - check-in → ZeroTwo
+  - load sample history
+  - reset
+
 ## Run it locally
 
 Backend (Python 3.11+):
@@ -50,7 +77,7 @@ npm ci
 npm run dev                 # http://localhost:3000 (uses NEXT_PUBLIC_API_URL, default http://localhost:8000)
 ```
 
-Without a Gemini key the planner, tracking and analytics all work. The Council says that live AI replies aren't set up.
+Without a Gemini key, the planner, tracking and analytics all work, and the Council answers with labelled sample replies. For full local use (live nudges on a timer), set `ENABLE_PROACTIVE_LLM=true`. To try the evaluator experience locally, set `DEMO_MODE=true`.
 
 ## How to evaluate
 
@@ -63,8 +90,7 @@ Without a Gemini key the planner, tracking and analytics all work. The Council s
 
 - **Self-reported, not measured.** Scores reflect what you mark. The workload signal is a heuristic.
 - **Personas untested against a live model.** Their prompts have only been checked statically (see `evals/EVALS.md`).
-- **Proactive replies don't reach the UI yet.** Scheduled jobs generate them, but they aren't pushed to the screen.
-- **Single user.** There is one local SQLite database and no accounts.
+- **No accounts.** Outside demo mode there is one local SQLite database. In demo mode, data is per browser session and temporary.
 - **AI uses Google's Gemini API.** Free-tier content may be used by Google to improve its products, so don't enter personal information.
 
 ## Project layout

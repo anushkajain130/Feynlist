@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { BellRing } from "lucide-react";
 import { api, type Nudge } from "@/lib/api";
 import { AGENTS, TRIGGER_LABELS, type AgentKey } from "@/lib/agents";
+import SampleBadge from "./SampleBadge";
 
 /** Latest unprompted coach messages (nudges) for this session. */
 export default function NudgesPanel({ refreshKey }: { refreshKey: number }) {
@@ -40,6 +41,7 @@ export default function NudgesPanel({ refreshKey }: { refreshKey: number }) {
                     {a.name} · <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>{TRIGGER_LABELS[n.triggered_by] ?? n.triggered_by}</span>
                   </div>
                   <div style={{ fontSize: "13px", lineHeight: 1.5, overflowWrap: "anywhere" }}>{n.content}</div>
+                  {n.is_sample && <SampleBadge label={n.sample_label} reason={n.sample_reason} />}
                 </div>
               </div>
             );

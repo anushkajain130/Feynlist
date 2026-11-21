@@ -1,4 +1,4 @@
-down: banner = "Can't reach the Feynlist server. If it hasn't been used for a while, it may be waking up, which can take up to a minute. Retrying automatically… Nothing shown o"
-down: shows "No tasks scheduled"? false
+down: banner = "Waking the server, this can take up to a minute… The free host sleeps when nobody is using it. This page will load by itself as soon as it answers."
+down: shows empty-account text? false
 up: banner gone after 5s without manual reload
-up: shows "No tasks scheduled"? true
+up: dashboard loaded with progress: 7/12 tasks · 58%

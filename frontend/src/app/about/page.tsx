@@ -1,4 +1,4 @@
-import { Info, ShieldCheck, Bot, AlertTriangle } from "lucide-react";
+import { Info, ShieldCheck, Bot, AlertTriangle, Sparkles, FlaskConical } from "lucide-react";
 
 export const metadata = { title: "About · Feynlist" };
 
@@ -39,6 +39,35 @@ export default function AboutPage() {
         </div>
 
         <div className="glass" style={card}>
+          <div style={head}><Sparkles size={16} style={{ color: "#fbbf24" }} /> Live AI in this demo</div>
+          <p style={body}>
+            The Council is designed to run live: all five coaches, plus nudges when you miss or finish a task,
+            at the end of the day and at check-ins. To stay on a free Gemini key, the public demo limits this:
+          </p>
+          <ul style={{ ...body, paddingLeft: "18px" }}>
+            <li>Each browser session gets <strong>2 live replies</strong> (chat and demo controls count together).</li>
+            <li>There is a daily cap for everyone, and a short pause if too many requests arrive in a minute.</li>
+            <li>&quot;Council&quot; (all five at once) and automatic nudges always use <strong>sample replies</strong>,
+              because all five at once would use five requests.</li>
+            <li>No scheduled AI calls run in the demo.</li>
+          </ul>
+          <p style={body}>
+            Everything else is shown as <strong>pre-written sample replies</strong>, always labelled
+            &quot;Sample reply (pre-written, not live)&quot;. They are written in each coach&apos;s style and only
+            mention your plan&apos;s real numbers. If the AI is unavailable, you get a sample with a short reason, never an error.
+          </p>
+        </div>
+
+        <div className="glass" style={card}>
+          <div style={head}><FlaskConical size={16} style={{ color: "var(--accent-2)" }} /> Sample data and your session</div>
+          <p style={body}>
+            In demo mode each browser gets its own private copy of the app, filled with sample data: about two weeks
+            of made-up history. Nobody else sees what you do. It&apos;s stored in temporary storage on a free server, so it
+            may reset when the server restarts. &quot;Reset demo&quot; on the dashboard starts you over at any time.
+          </p>
+        </div>
+
+        <div className="glass" style={card}>
           <div style={head}><ShieldCheck size={16} style={{ color: "#34d399" }} /> What the numbers are (and aren&apos;t)</div>
           <p style={body}>
             The workload (&quot;burnout&quot;) signal is a simple rule-based heuristic over your recent metrics. It is
@@ -50,8 +79,9 @@ export default function AboutPage() {
         <div className="glass" style={card}>
           <div style={head}><AlertTriangle size={16} style={{ color: "#fbbf24" }} /> Known limits</div>
           <p style={body}>
-            The coaches only know what is in your plan and metrics. If live AI is unavailable (no key set, or the
-            free quota is used up), the planner and stats still work and the Council says so.
+            The coaches only know what is in your plan and metrics. The persona replies have not yet been evaluated
+            against a live model in a structured way (see the project&apos;s evals). The planner and stats work with or
+            without live AI.
           </p>
         </div>
       </div>

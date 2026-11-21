@@ -8,6 +8,9 @@ const path = require('path');
 const out = process.argv[2]; const prefix = process.argv[3]; const base = process.argv[4] || 'http://localhost:3000';
 const api = process.argv[5] || 'http://127.0.0.1:8000';
 const template = require(path.join(__dirname, '..', '..', 'frontend', 'src', 'lib', 'dayTemplate.json'));
+// Fixed session id so the browser and the seeding call share one (demo-mode) session.
+const SID = 'e2e0'.repeat(8);
+const HEADERS = { 'Content-Type': 'application/json', 'X-Feynlist-Session': SID, 'X-Feynlist-TZ': 'UTC' };
 async function overflow(page) {
   return page.evaluate(() => {
     const W = window.innerWidth; const bad = [];
@@ -21,12 +24,14 @@ async function overflow(page) {
   });
 }
 (async () => {
-  const seed = await fetch(`${api}/api/tasks/schedule`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tasks: template }) });
+  const seed = await fetch(`${api}/api/tasks/schedule`, { method: 'POST', headers: HEADERS, body: JSON.stringify({ tasks: template }) });
   if (!seed.ok) throw new Error(`seeding failed: HTTP ${seed.status}`);
   const browser = await chromium.launch();
   const results = [];
   for (const [label, opts] of [['phone', devices['iPhone 13']], ['desktop', { viewport: { width: 1366, height: 900 }, deviceScaleFactor: 1 }]]) {
-    const ctx = await browser.newContext(opts); const page = await ctx.newPage();
+    const ctx = await browser.newContext({ ...opts, timezoneId: 'UTC' });
+    await ctx.addInitScript(id => { try { localStorage.setItem('feynlist_session', id); } catch {} }, SID);
+    const page = await ctx.newPage();
     const errors = []; page.on('pageerror', e => errors.push(e.message));
     page.on('response', r => { if (r.status() >= 500) errors.push(`HTTP ${r.status()} ${r.url()}`); });
     const shots = [

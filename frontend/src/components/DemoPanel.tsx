@@ -40,8 +40,9 @@ export default function DemoPanel({ onChanged }: { onChanged: () => Promise<void
 
   const trigger = (kind: DemoTrigger) => run(kind, async () => {
     const r = await api.demo.trigger(kind);
-    if (r.messages.length === 0) return `${r.detail} No coach reply: live AI isn't available right now.`;
-    return `${r.detail} ${r.messages.map(m => m.display_name).join(", ")} replied (see Council nudges).`;
+    if (r.messages.length === 0) return `${r.detail} No coach replied.`;
+    const who = r.messages.map(m => `${m.display_name}${m.is_sample ? " (sample reply)" : " (live)"}`).join(", ");
+    return `${r.detail} ${who} replied; see Council nudges.`;
   });
 
   return (

@@ -117,6 +117,9 @@ export interface AgentMessage {
   timestamp: string;
   triggered_by: string | null;
   tool_used: string | null;
+  is_sample: boolean;
+  sample_label: string | null;
+  sample_reason: string | null;
 }
 
 export interface CouncilResponse {
@@ -175,6 +178,7 @@ export const api = {
     status: () => get<AgentStatus>("/api/agents/status"),
     tokensToday: () => get<{ total_tokens_today: number }>("/api/agents/tokens/today"),
     nudges: (limit = 5) => get<{ nudges: Nudge[] }>(`/api/agents/nudges?limit=${limit}`),
+    budget: () => get<AIBudget>("/api/agents/budget"),
   },
   demo: {
     status: () => get<DemoStatus>("/api/demo/status"),
@@ -194,6 +198,19 @@ export interface Nudge {
   triggered_by: string;
   model_used: string;
   timestamp: string;
+  is_sample: boolean;
+  sample_label: string | null;
+  sample_reason: string | null;
+}
+
+export interface AIBudget {
+  ai_configured: boolean;
+  live_limit: number | null;   // null = no per-session limit (single-user mode)
+  live_left: number | null;
+  daily_cap_reached: boolean;
+  mode: "live" | "sample";
+  council_live: boolean;
+  notice: string;
 }
 
 export interface DemoStatus {
@@ -209,7 +226,7 @@ export interface DemoTriggerResult {
   kind: DemoTrigger;
   detail: string;
   cooldowns_bypassed?: boolean;
-  messages: { id: string; agent_id: string; display_name: string; content: string; triggered_by: string | null }[];
+  messages: { id: string; agent_id: string; display_name: string; content: string; triggered_by: string | null; is_sample: boolean }[];
 }
 
 // ─── WebSocket ────────────────────────────────────────────────────────────────

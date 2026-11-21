@@ -3,7 +3,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Send, Wifi, WifiOff, Loader2 } from "lucide-react";
 import { wsUrl, api } from "@/lib/api";
-import { AGENTS, type AgentKey } from "@/lib/agents";
+import { AGENTS, TRIGGER_LABELS, type AgentKey } from "@/lib/agents";
+import SampleBadge from "@/components/SampleBadge";
+import type { AIBudget } from "@/lib/api";
 import { format } from "date-fns";
 
 // Agent personas
@@ -21,6 +23,11 @@ interface ChatMessage {
   tokens_used?: number;
   model_used?: string;
   latency_ms?: number;
+  isSample?: boolean;
+  sampleLabel?: string | null;
+  sampleReason?: string | null;
+  proactive?: boolean;
+  triggeredBy?: string | null;
   debug?: {
     prompt_size: number;
     memory_count: number;
@@ -47,6 +54,11 @@ function AgentBubble({ msg, devMode }: { msg: ChatMessage; devMode: boolean }) {
       <div style={{ maxWidth: "85%", flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: "11px", color: agent.color, marginBottom: "4px", fontWeight: 600 }}>
           {msg.displayName ?? agent.name}
+          {msg.proactive && (
+            <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>
+              {" "}· nudge{msg.triggeredBy ? `: ${TRIGGER_LABELS[msg.triggeredBy] ?? msg.triggeredBy}` : ""}
+            </span>
+          )}
         </div>
         <div style={{
           background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)",
@@ -54,6 +66,7 @@ function AgentBubble({ msg, devMode }: { msg: ChatMessage; devMode: boolean }) {
           fontSize: "13px", lineHeight: 1.6, color: "var(--text)",
           whiteSpace: "pre-wrap",
         }}>{msg.content}</div>
+        {msg.isSample && <SampleBadge label={msg.sampleLabel} reason={msg.sampleReason} />}
 
         {/* Token usage per reply (always shown); breakdown + debug only in developer mode */}
         {msg.tokens_used !== undefined && msg.tokens_used > 0 && (
@@ -145,7 +158,7 @@ export default function CouncilPage() {
   const [loading, setLoading] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<AgentKey>("freya");
   const [tokensToday, setTokensToday] = useState(0);
-  const [aiConfigured, setAiConfigured] = useState<boolean | null>(null);
+  const [budget, setBudget] = useState<AIBudget | null>(null);
   const [devMode, setDevMode] = useState(false); // developer details hidden by default
   const wsRef = useRef<WebSocket | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -163,12 +176,11 @@ export default function CouncilPage() {
     }
   }, []);
 
-  // Is live AI set up on the server? (Socket "connected" alone doesn't mean agents can reply.)
-  useEffect(() => {
-    api.agents.status()
-      .then(s => setAiConfigured(s.ai_configured))
-      .catch(() => setAiConfigured(null));
-  }, [connected]);
+  // Live replies left / sample mode (the free-tier budget lives on the server)
+  const refreshBudget = useCallback(() => {
+    api.agents.budget().then(setBudget).catch(() => setBudget(null));
+  }, []);
+  useEffect(() => { refreshBudget(); }, [connected, refreshBudget]);
 
   // Auto-scroll
   useEffect(() => {
@@ -212,8 +224,14 @@ export default function CouncilPage() {
           model_used: data.model_used || "",
           latency_ms: data.latency_ms || 0,
           debug: data.debug || null,
+          isSample: !!data.is_sample,
+          sampleLabel: data.sample_label,
+          sampleReason: data.sample_reason,
+          proactive: !!data.proactive,
+          triggeredBy: data.triggered_by,
         });
         fetchTokensToday();
+        refreshBudget();
       } else if (data.type === "error") {
         addMsg({ type: "error", content: data.message, timestamp: new Date() });
       }
@@ -230,7 +248,7 @@ export default function CouncilPage() {
     };
 
     return () => ws.close();
-  }, [addMsg, fetchTokensToday]);
+  }, [addMsg, fetchTokensToday, refreshBudget]);
 
   const send = useCallback(() => {
     const text = input.trim();
@@ -275,12 +293,31 @@ export default function CouncilPage() {
             Developer details
           </label>
           <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px",
-            color: !connected ? "#6b6b80" : aiConfigured === false ? "#fbbf24" : "#34d399" }}>
+            color: !connected ? "#6b6b80" : budget?.mode === "sample" ? "#fbbf24" : "#34d399" }}>
             {connected ? <Wifi size={14} /> : <WifiOff size={14} />}
-            {!connected ? "Offline" : aiConfigured === false ? "Connected · AI replies unavailable" : "Connected"}
+            {!connected ? "Offline" : "Connected"}
           </div>
         </div>
       </div>
+
+      {/* Free-tier budget + data notice */}
+      {budget && (
+        <div className="glass" style={{ padding: "10px 14px", fontSize: "12px", lineHeight: 1.5, display: "flex", flexWrap: "wrap", gap: "4px 16px", alignItems: "center" }}>
+          <strong style={{ color: budget.mode === "sample" ? "#fbbf24" : "#34d399" }}>
+            {!budget.ai_configured
+              ? "Showing sample replies (no live AI on this server)."
+              : budget.live_limit === null
+                ? (budget.daily_cap_reached ? "Showing sample replies (daily live limit reached)." : "Live replies on.")
+                : budget.live_left && budget.live_left > 0 && !budget.daily_cap_reached
+                  ? `Live replies left: ${budget.live_left} of ${budget.live_limit}`
+                  : "Showing sample replies."}
+          </strong>
+          <span style={{ color: "var(--text-muted)" }}>{budget.notice}</span>
+          {!budget.council_live && (
+            <span style={{ color: "var(--text-muted)" }}>&quot;Council&quot; (all five) shows sample replies in this demo.</span>
+          )}
+        </div>
+      )}
 
       {/* Agent selector */}
       <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
