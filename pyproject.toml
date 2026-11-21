@@ -1,12 +1,12 @@
 [build-system]
 requires = ["setuptools>=68.0"]
-build-backend = "setuptools.backends.legacy:build"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "feynlist"
 version = "1.0.0"
-description = "AI-powered productivity operating system with persistent personality agents"
-requires-python = ">=3.13"
+description = "Accountability-first day planner with AI coaching personas"
+requires-python = ">=3.11"
 dependencies = [
     # Core
     "pydantic>=2.7.0",
@@ -61,3 +61,8 @@ testpaths = ["tests"]
 
 [tool.setuptools.packages.find]
 where = ["."]
+include = ["agents*", "analytics*", "api*", "config*", "core*", "data*", "events*", "memory*", "notifications*", "tools*"]
+
+[tool.setuptools.package-data]
+"agents.personas" = ["*.yaml"]
+"data.migrations" = ["*.sql"]
