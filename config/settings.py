@@ -97,17 +97,7 @@ class Settings(BaseSettings):
         default=150, alias="ULTRA_TIER_DAILY_INTERACTIONS"
     )
 
-    # -------------------------------------------------------------------------
-    # Paths
-    # -------------------------------------------------------------------------
-    persona_configs_dir: Path = Field(
-        default=PROJECT_ROOT / "config" / "persona_configs",
-        alias="PERSONA_CONFIGS_DIR",
-    )
-    assets_dir: Path = Field(
-        default=PROJECT_ROOT / "assets",
-        alias="ASSETS_DIR",
-    )
+    # (Persona configs live in agents/personas/*.yaml; see agents/runtime.PERSONAS_DIR.)
 
     # -------------------------------------------------------------------------
     # Analytics thresholds

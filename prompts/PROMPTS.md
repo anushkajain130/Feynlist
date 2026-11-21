@@ -55,3 +55,9 @@ Status for all entries: **New improvement prompt**. Entries are verbatim and in 
 > go ahead
 
 **What it changed:** pushed the baseline commits once access worked. This is also the go-ahead for code changes, which start in CLAUDE.md's order of work: issues 1–3 and 5–6, then 4 and 7–12. Each change is a separate commit, listed in the git log.
+
+### C4. 2026-11-21
+
+> tell me what you need to compelte 4,7-12
+
+**What it changed:** status question asked during the issue 4, 7–12 work. Issue 12 (the dead persona-path setting) was finished in the same turn. The answer: issues 4 and 7–12 are done; the only thing left is a live run of the issue 4 truncation fix, which needs the owner's Gemini key in a local, gitignored `.env`.
