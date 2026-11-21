@@ -8,11 +8,11 @@ import clsx from "clsx";
 
 // Agent personas
 const AGENTS = {
-  freya:   { name: "Freya",   color: "#7c5cfc", emoji: "⚔️",  desc: "Disciplinarian" },
-  albedo:  { name: "Albedo",  color: "#f472b6", emoji: "👑",  desc: "Provocateur" },
-  anya:    { name: "Anya",    color: "#34d399", emoji: "🌸",  desc: "Warmth" },
-  zerotwo: { name: "Zero Two",color: "#818cf8", emoji: "🎯",  desc: "Analyst" },
-  mohini:  { name: "Mohini", color: "#fbbf24", emoji: "🕉️",  desc: "Spiritual" },
+  freya:   { name: "Freya",   color: "#7c5cfc", emoji: "⚔️",  desc: "Direct & honest" },
+  albedo:  { name: "Albedo",  color: "#f472b6", emoji: "🎉",  desc: "Celebrates wins" },
+  anya:    { name: "Anya",    color: "#34d399", emoji: "🌸",  desc: "Warm & rest-aware" },
+  zerotwo: { name: "Zero Two",color: "#818cf8", emoji: "🎯",  desc: "Analytical" },
+  mohini:  { name: "Mohini", color: "#fbbf24", emoji: "🌿",  desc: "Calm & energy" },
   council: { name: "Council", color: "#e8e8f0", emoji: "🏛️",  desc: "All together" },
 } as const;
 

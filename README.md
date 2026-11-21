@@ -18,13 +18,15 @@ The repository is built on a modular, decoupled architecture consisting of sever
 
 The system features five distinct AI personas, each defined by unique YAML configurations and specific operational scopes:
 
-| Agent | Identity | Primary Trigger Scope |
+| Agent | Coaching style | Proactive triggers wired today |
 | :--- | :--- | :--- |
-| **Freya** | The Truth-Teller | Day starts, missed tasks, direct user inquiries. |
-| **Anya** | The Anchor | Burnout detection, broken streaks, emotional support. |
-| **ZeroTwo** | The Strategist | Weekly reviews, performance drops, metric optimization. |
-| **Albedo** | The Provocateur | Task completions, high scores, streak milestones. |
-| **Mohini** | The Spiritual Guide | Inactivity detection, energy management, wellness. |
+| **Freya** | Direct and honest | Missed task, day start |
+| **Anya** | Warm and rest-aware | Workload signal (moderate or severe), streak broken, end-of-day review |
+| **ZeroTwo** | Analytical | Scheduled check-in |
+| **Albedo** | Playful celebrator | Streak milestone |
+| **Mohini** | Calm, energy-focused | None yet; replies when you message her |
+
+All five also reply when you message them directly.
 
 ## Technical Specification
 
