@@ -13,8 +13,6 @@ from core.models import (
     ContextPacket,
     ToolResult,
     CallPriority,
-    User,
-    UserTier,
 )
 from core.exceptions import (
     FeynlistError,
@@ -25,7 +23,6 @@ from core.exceptions import (
     ToolError,
     ToolNotFoundError,
     ToolPermissionError,
-    RateLimitExceeded,
     AgentUnavailableError,
 )
 
@@ -33,8 +30,8 @@ __all__ = [
     "Task", "Subtask", "TaskClass", "DailyMetrics", "HourlyPoint",
     "MemoryEntry", "MemoryType", "AppEvent", "EventType",
     "AgentMessage", "AgentId", "ContextPacket", "ToolResult",
-    "CallPriority", "User", "UserTier",
+    "CallPriority",
     "FeynlistError", "DatabaseError", "RecordNotFoundError",
     "AgentError", "LLMCallError", "ToolError", "ToolNotFoundError",
-    "ToolPermissionError", "RateLimitExceeded",
+    "ToolPermissionError", "AgentUnavailableError",
 ]

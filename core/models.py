@@ -46,15 +46,6 @@ class TaskClass(str, Enum):
         return cls.UNSPECIFIED
 
 
-class UserTier(str, Enum):
-    """Subscription tier for the user."""
-
-    FREE = "free"
-    PRO = "pro"
-    ULTRA = "ultra"
-    ENTERPRISE = "enterprise"
-
-
 class EventType(str, Enum):
     """All event types that flow through the event bus."""
 
@@ -405,18 +396,6 @@ class ContextPacket(BaseModel):
 # =============================================================================
 # USER MODEL (future multi-user support)
 # =============================================================================
-
-
-class User(BaseModel):
-    """Represents one user of the system."""
-
-    id: str
-    display_name: str
-    tier: UserTier = UserTier.FREE
-    created_at: datetime = Field(default_factory=datetime.now)
-    timezone: str = "Asia/Kolkata"
-    daily_interactions_used: int = 0
-    last_active: Optional[datetime] = None
 
 
 # =============================================================================

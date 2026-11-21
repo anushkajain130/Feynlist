@@ -154,14 +154,4 @@ class ConfigError(FeynlistError):
         super().__init__(f"Config error for '{key}': {reason}")
 
 
-# --- Rate Limiting ---
-class RateLimitExceeded(FeynlistError):
-    """Raised when a user has hit their daily interaction limit."""
 
-    def __init__(self, user_id: str, tier: str, limit: int):
-        super().__init__(
-            f"User '{user_id}' ({tier} tier) has exceeded daily limit of {limit} interactions."
-        )
-        self.user_id = user_id
-        self.tier = tier
-        self.limit = limit

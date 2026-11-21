@@ -85,17 +85,10 @@ class Settings(BaseSettings):
     )
 
     # -------------------------------------------------------------------------
-    # Rate Limiting (interactions per day per tier)
+    # Time zone for scheduled jobs (IANA name, e.g. "Europe/London"). Defaults to
+    # UTC so nothing is tied to one person's location.
     # -------------------------------------------------------------------------
-    free_tier_daily_interactions: int = Field(
-        default=8, alias="FREE_TIER_DAILY_INTERACTIONS"
-    )
-    pro_tier_daily_interactions: int = Field(
-        default=40, alias="PRO_TIER_DAILY_INTERACTIONS"
-    )
-    ultra_tier_daily_interactions: int = Field(
-        default=150, alias="ULTRA_TIER_DAILY_INTERACTIONS"
-    )
+    app_timezone: str = Field(default="UTC", alias="APP_TIMEZONE")
 
     # (Persona configs live in agents/personas/*.yaml; see agents/runtime.PERSONAS_DIR.)
 

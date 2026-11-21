@@ -96,17 +96,6 @@ CREATE TABLE IF NOT EXISTS agent_messages (
 CREATE INDEX IF NOT EXISTS idx_messages_agent ON agent_messages(agent_id);
 CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON agent_messages(timestamp DESC);
 
--- Users: placeholder for future multi-user support
-CREATE TABLE IF NOT EXISTS users (
-    id                      TEXT PRIMARY KEY,
-    display_name            TEXT NOT NULL,
-    tier                    TEXT DEFAULT 'free',
-    created_at              TEXT DEFAULT (datetime('now')),
-    timezone                TEXT DEFAULT 'Asia/Kolkata',
-    daily_interactions_used INTEGER DEFAULT 0,
-    last_active             TEXT
-);
-
 -- Schema version tracking
 CREATE TABLE IF NOT EXISTS schema_version (
     version     INTEGER PRIMARY KEY,
