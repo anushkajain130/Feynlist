@@ -53,7 +53,7 @@ function AgentBubble({ msg, devMode }: { msg: ChatMessage; devMode: boolean }) {
       }}>{agent.emoji}</div>
       
       {/* Bubble */}
-      <div style={{ maxWidth: "78%", flex: 1 }}>
+      <div style={{ maxWidth: "85%", flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: "11px", color: agent.color, marginBottom: "4px", fontWeight: 600 }}>
           {msg.displayName ?? agent.name}
         </div>
@@ -181,7 +181,9 @@ export default function CouncilPage() {
 
   // Auto-scroll
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    // Scroll only the chat list (scrollIntoView would also scroll the whole page on phones)
+    const list = bottomRef.current?.parentElement;
+    if (list) list.scrollTop = list.scrollHeight;
   }, [messages]);
 
   // WebSocket connection
@@ -267,9 +269,9 @@ export default function CouncilPage() {
   }, {} as Record<string, { calls: number; totalTokens: number; avgTokens: number }>);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", padding: "24px", gap: "16px", maxWidth: "1500px", margin: "0 auto", width: "100%" }}>
+    <div className="council-page">
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
         <div>
           <div style={{ fontSize: "12px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em" }}>The</div>
           <h1 style={{ fontSize: "28px", fontWeight: 700 }} className="gradient-text">Council</h1>
@@ -312,9 +314,9 @@ export default function CouncilPage() {
       </div>
 
       {/* Split layout: Chat Area + Audit Dashboard */}
-      <div style={{ display: "flex", flex: 1, gap: "16px", overflow: "hidden", minHeight: 0 }}>
+      <div className="council-body">
         {/* Main Chat Area */}
-        <div className="glass" style={{ flex: 3, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+        <div className="glass council-chat">
           <div style={{ flex: 1, overflowY: "auto", padding: "20px", display: "flex", flexDirection: "column", gap: "16px" }}>
             {messages.map(msg => {
               if (msg.type === "user") return <UserBubble key={msg.id} msg={msg} />;
@@ -370,10 +372,10 @@ export default function CouncilPage() {
         </div>
 
         {/* Token Auditing Dashboard (Right Column) */}
-        <div className="glass" style={{
-          flex: 1, padding: "16px", display: "flex", flexDirection: "column", gap: "20px",
+        <div className="glass council-side" style={{
+          padding: "16px", display: "flex", flexDirection: "column", gap: "20px",
           background: "rgba(17,17,24,0.7)", border: "1px solid var(--border)",
-          overflowY: "auto", minWidth: "280px"
+          overflowY: "auto",
         }}>
           <div>
             <h2 style={{ fontSize: "11px", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "10px" }}>

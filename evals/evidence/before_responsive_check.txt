@@ -1,0 +1,12 @@
+[phone] home: elements past viewport (390px) = 73 e.g. div [253..490] "Daily Check-In
+Alertness" -> before_phone_home.png
+[phone] home_task_expanded: elements past viewport (390px) = 73 e.g. div [253..490] "Daily Check-In
+Alertness" -> before_phone_home_task_expanded.png
+[phone] home_planner: elements past viewport (390px) = 64 e.g. div [-28..290] "SATURDAY, NOVEMBER 21
+Academics Self" | button [663..703] "" | svg [676..690] "" -> before_phone_home_planner.png
+[phone] home_aura_info: elements past viewport (390px) = 177 e.g. div [-232..86] "SATURDAY, NOVEMBER 21
+Dashboar" | div [-200..-51] "SATURDAY, NOVEMBER 21" | h1.gradient-text [-200..-51] "Dashboard" -> before_phone_home_aura_info.png
+[phone] analytics: elements past viewport (390px) = 4 e.g. div.glass [320..412] "0.0h
+Avg Aura" | div [445..510] "0.000" | div [445..510] "Avg Aura" -> before_phone_analytics.png
+[phone] council: elements past viewport (390px) = 1 e.g. div.glass [114..394] "SESSION USAGE AUDITING
+SESSION" -> before_phone_council.png

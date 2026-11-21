@@ -72,3 +72,61 @@ body {
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+
+/* ─── Layout (responsive) ─────────────────────────────────────────────────
+   Phones (≤ 640px): the sidebar becomes a bottom tab bar, pages use a 16px
+   gutter, grids collapse, and the Council stacks chat above usage. */
+.sidebar {
+  width: 72px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 0;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.app-main { min-width: 0; }
+
+.page { padding: 32px; max-width: 1100px; margin: 0 auto; width: 100%; }
+.page-header { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 16px; margin-bottom: 32px; }
+.header-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.grid-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+
+.plan-row { display: grid; grid-template-columns: 1fr 100px 100px 180px 40px; gap: 10px; align-items: center; }
+.planner-card { padding: 28px; }
+
+.council-page { display: flex; flex-direction: column; height: 100vh; padding: 24px; gap: 16px; max-width: 1500px; margin: 0 auto; width: 100%; }
+.council-body { display: flex; flex: 1; gap: 16px; overflow: hidden; min-height: 0; }
+.council-chat { flex: 3; overflow: hidden; display: flex; flex-direction: column; min-width: 0; }
+.council-side { flex: 1; min-width: 280px; }
+
+@media (max-width: 900px) {
+  .grid-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 760px) {
+  .council-page { height: auto; min-height: 100%; padding: 16px; }
+  .council-body { flex-direction: column; overflow: visible; }
+  .council-chat { flex: none; height: 65vh; }
+  .council-side { flex: none; min-width: 0; }
+  .grid-2 { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 640px) {
+  .sidebar {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
+    width: 100%; height: 64px; flex-direction: row; justify-content: space-around;
+    padding: 8px 16px; border-right: none !important; border-top: 1px solid var(--border);
+  }
+  .sidebar-logo { display: none !important; }
+  .app-main { padding-bottom: 72px; }
+  .page { padding: 20px 16px; }
+  .page-header { margin-bottom: 20px; align-items: flex-start; }
+  .planner-card { padding: 16px; }
+  .plan-row { grid-template-columns: 1fr 1fr; }
+  .plan-row > :first-child { grid-column: 1 / -1; }
+  .plan-row > :last-child { justify-self: end; }
+  .task-time { min-width: 44px !important; }
+}

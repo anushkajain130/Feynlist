@@ -17,20 +17,15 @@ export default function Sidebar() {
 
   return (
     <aside
+      className="sidebar"
       style={{
-        width: "72px",
         background: "var(--surface)",
         borderRight: "1px solid var(--border)",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        padding: "24px 0",
-        gap: "8px",
-        flexShrink: 0,
       }}
     >
       {/* Logo */}
       <div
+        className="sidebar-logo"
         style={{
           width: "40px",
           height: "40px",
@@ -56,6 +51,7 @@ export default function Sidebar() {
             key={href}
             href={href}
             title={label}
+            aria-label={label}
             style={{
               width: "48px",
               height: "48px",

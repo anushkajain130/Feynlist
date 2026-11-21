@@ -71,7 +71,7 @@ export default function AnalyticsClient({ history, weekly, burnout, backendUnrea
   );
 
   return (
-    <div style={{ padding: "32px", maxWidth: "1100px" }}>
+    <div className="page">
       <BackendStatus unreachable={backendUnreachable} />
       {/* Header */}
       <div style={{ marginBottom: "32px" }}>
@@ -83,7 +83,7 @@ export default function AnalyticsClient({ history, weekly, burnout, backendUnrea
 
       {/* Weekly summary cards */}
       {weekly && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px", marginBottom: "24px" }}>
+        <div className="grid-stats" style={{ marginBottom: "24px" }}>
           {[
             { label: "7-Day Discipline", value: `${weekly.avg_discipline.toFixed(0)}%`, color: "#7c5cfc" },
             { label: "7-Day Alertness", value: `${weekly.avg_alertness.toFixed(0)}%`, color: "#818cf8" },
@@ -99,7 +99,7 @@ export default function AnalyticsClient({ history, weekly, burnout, backendUnrea
       )}
 
       {/* Charts grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "16px" }}>
+      <div className="grid-2" style={{ marginBottom: "16px" }}>
         <ChartCard title="Discipline (14 days)" trend={chartData.length > 3 ? (chartData[chartData.length - 1].discipline > chartData[0].discipline ? "improving" : "declining") : "stable"}>
           {chartData.length === 0 ? emptyState : (
             <ResponsiveContainer width="100%" height={160}>

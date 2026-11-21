@@ -142,7 +142,7 @@ function TaskRow({
         </button>
 
         {/* Time */}
-        <div style={{ minWidth: "80px" }}>
+        <div className="task-time" style={{ minWidth: "80px" }}>
           <div style={{ fontSize: "12px", color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}>
             {task.start_time}
           </div>
@@ -153,13 +153,13 @@ function TaskRow({
         <div style={{ width: "3px", height: "24px", borderRadius: "2px", background: color, flexShrink: 0 }} />
 
         {/* Main Info */}
-        <div style={{ flex: 1, display: "flex", gap: "8px", alignItems: "center" }}>
+        <div style={{ flex: 1, minWidth: 0, display: "flex", flexWrap: "wrap", gap: "4px 8px", alignItems: "center" }}>
           {isActive && <span className="pulse" style={{
             width: "6px", height: "6px", borderRadius: "50%",
             background: "var(--accent)", display: "inline-block",
           }} />}
           <span style={{
-            fontSize: "13px", fontWeight: 500,
+            fontSize: "13px", fontWeight: 500, overflowWrap: "anywhere",
             color: task.completed ? "var(--text-muted)" : "var(--text)",
             textDecoration: task.completed ? "line-through" : "none",
           }}>{task.task}</span>
@@ -467,10 +467,10 @@ export default function DashboardClient({ initialTasks, initialMetrics, backendU
   const pct = taskData?.completion_pct ?? 0;
 
   return (
-    <div style={{ padding: "32px", maxWidth: "1100px", margin: "0 auto" }}>
+    <div className="page">
       <BackendStatus unreachable={backendUnreachable} />
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "32px" }}>
+      <div className="page-header">
         <div>
           <div style={{ fontSize: "12px", color: "var(--text-muted)", marginBottom: "4px", textTransform: "uppercase", letterSpacing: "0.1em" }}>
             {today}
@@ -480,7 +480,7 @@ export default function DashboardClient({ initialTasks, initialMetrics, backendU
           </h1>
         </div>
         {!isPlanning && (
-          <div style={{ display: "flex", gap: "10px" }}>
+          <div className="header-actions">
             <button
               onClick={() => setShowCheckInModal(true)}
               style={{
@@ -540,8 +540,8 @@ export default function DashboardClient({ initialTasks, initialMetrics, backendU
 
       {/* PLANNER INTERFACE */}
       {isPlanning ? (
-        <div className="glass fade-in" style={{ padding: "28px", marginBottom: "32px", position: "relative", border: "1px solid rgba(124, 92, 252, 0.2)" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+        <div className="glass fade-in planner-card" style={{ marginBottom: "32px", position: "relative", border: "1px solid rgba(124, 92, 252, 0.2)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", marginBottom: "20px" }}>
             <div>
               <h2 style={{ fontSize: "18px", fontWeight: 600, display: "flex", alignItems: "center", gap: "8px" }}>
                 <Sparkles size={16} style={{ color: "var(--accent)" }} /> Configure Today's Schedule
@@ -550,7 +550,7 @@ export default function DashboardClient({ initialTasks, initialMetrics, backendU
                 Define your timeblocks. Feynlist will track performance per timeblock.
               </div>
             </div>
-            <div style={{ display: "flex", gap: "10px" }}>
+            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
               <button
                 onClick={loadGuideline}
                 style={{
@@ -606,11 +606,8 @@ export default function DashboardClient({ initialTasks, initialMetrics, backendU
             {planTasks.map((t, idx) => (
               <div
                 key={idx}
+                className="plan-row"
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 100px 100px 180px 40px",
-                  gap: "10px",
-                  alignItems: "center",
                   padding: "10px",
                   background: "rgba(255,255,255,0.01)",
                   borderRadius: "8px",
@@ -767,7 +764,7 @@ export default function DashboardClient({ initialTasks, initialMetrics, backendU
       ) : null}
 
       {/* Stat cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px", marginBottom: "28px" }}>
+      <div className="grid-stats" style={{ marginBottom: "28px" }}>
         <StatCard label="Discipline" value={`${metrics?.discipline?.toFixed(0) ?? 0}%`}
           sub={(metrics?.discipline ?? 0) > 70 ? "↑ On track" : "Needs work"}
           icon={Target} color="#7c5cfc" />
@@ -873,7 +870,7 @@ export default function DashboardClient({ initialTasks, initialMetrics, backendU
           <p style={{ marginBottom: "8px", fontSize: "12.5px", opacity: 0.9 }}>
             <strong>Study Hours</strong> (called PS, problem-solving, hours in the code) count focused study time you actually finished.
           </p>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", fontSize: "12px", opacity: 0.85 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "16px", fontSize: "12px", opacity: 0.85 }}>
             <div>
               <span style={{ color: "#5eead4" }}><strong>How it is calculated:</strong></span>
               <ul style={{ paddingLeft: "14px", marginTop: "4px" }}>
