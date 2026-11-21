@@ -21,6 +21,7 @@ from core.exceptions import ToolExecutionError
 from data.repositories.analytics_repo import analytics_repo
 from analytics.trends import trend_analyzer
 from tools.base_tool import BaseTool, ToolContext
+from core import clock
 
 
 # =============================================================================
@@ -63,7 +64,7 @@ class GetDailyMetricsTool(BaseTool):
             target = (
                 date.fromisoformat(input.target_date)
                 if input.target_date
-                else date.today()
+                else clock.today()
             )
             metrics = await analytics_repo.get_metrics_for_date(target)
         except Exception as e:
@@ -195,7 +196,7 @@ class GetPercentileTool(BaseTool):
         try:
             value = input.value
             if value is None:
-                today_metrics = await analytics_repo.get_metrics_for_date(date.today())
+                today_metrics = await analytics_repo.get_metrics_for_date(clock.today())
                 if today_metrics:
                     value = getattr(today_metrics, input.metric, 0.0)
                 else:

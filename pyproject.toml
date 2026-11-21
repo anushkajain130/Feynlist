@@ -49,7 +49,7 @@ testpaths = ["tests"]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["agents*", "analytics*", "api*", "config*", "core*", "data*", "events*", "memory*", "notifications*", "tools*"]
+include = ["agents*", "analytics*", "api*", "config*", "core*", "data*", "demo*", "events*", "memory*", "notifications*", "tools*"]
 
 [tool.setuptools.package-data]
 "agents.personas" = ["*.yaml"]

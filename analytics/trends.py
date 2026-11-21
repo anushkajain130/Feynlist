@@ -24,6 +24,7 @@ from loguru import logger
 from core.models import DailyMetrics
 from data.repositories.analytics_repo import analytics_repo
 from data.repositories.task_repo import task_repo
+from core import clock
 
 
 # =============================================================================
@@ -99,7 +100,7 @@ class TrendAnalyzer:
             end_date: Defaults to today
         """
         if end_date is None:
-            end_date = date.today()
+            end_date = clock.today()
         start_date = end_date - timedelta(days=days - 1)
 
         records = await analytics_repo.get_metrics_for_range(start_date, end_date)
@@ -191,7 +192,7 @@ class TrendAnalyzer:
         Returns a dict mapping hour → avg_points_per_active_day.
         Used to render a 24-hour heatmap in the UI.
         """
-        end = date.today()
+        end = clock.today()
         start = end - timedelta(days=lookback_days)
 
         hourly_data: dict[int, list[int]] = {h: [] for h in range(24)}
@@ -257,7 +258,7 @@ class TrendAnalyzer:
         - Days where discipline < 30% (poor start rate)
         - Time-of-day clustering of deviations
         """
-        end = date.today()
+        end = clock.today()
         start = end - timedelta(days=lookback_days)
 
         low_discipline_days: list[date] = []
@@ -406,7 +407,7 @@ class TrendAnalyzer:
         Defaults to the most recent full week (Mon–Sun).
         """
         if week_start is None:
-            today = date.today()
+            today = clock.today()
             # Go back to last Monday
             week_start = today - timedelta(days=today.weekday())
 
@@ -456,7 +457,7 @@ class TrendAnalyzer:
 
     async def history_days(self) -> int:
         """Number of days with recorded activity."""
-        records = await analytics_repo.get_metrics_for_range(date(2024, 1, 1), date.today())
+        records = await analytics_repo.get_metrics_for_range(date(2024, 1, 1), clock.today())
         return sum(1 for r in records if r.tasks_total > 0)
 
     async def get_percentile(self, metric: str, value: float) -> float | None:
@@ -466,7 +467,7 @@ class TrendAnalyzer:
         MIN_DAYS_FOR_PERCENTILE days of history.
         """
         records = await analytics_repo.get_metrics_for_range(
-            date(2024, 1, 1), date.today()
+            date(2024, 1, 1), clock.today()
         )
         records = [r for r in records if r.tasks_total > 0]
         if len(records) < self.MIN_DAYS_FOR_PERCENTILE:

@@ -20,6 +20,7 @@ from typing import Optional
 
 from core.models import Task, DailyMetrics, TaskClass
 from config.settings import settings
+from core import clock
 
 
 # =============================================================================
@@ -128,7 +129,7 @@ class DisciplineMetric:
         day_over: bool = False,
     ) -> float:
         if now is None:
-            now = datetime.now().time()
+            now = clock.now().time()
 
         raw = DisciplineMetric.compute_raw(tasks, now, day_over)
 

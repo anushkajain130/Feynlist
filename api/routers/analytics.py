@@ -27,6 +27,7 @@ from api.schemas import (
 from data.repositories.analytics_repo import analytics_repo
 from analytics.trends import trend_analyzer
 from core.exceptions import DatabaseError
+from core import clock
 
 router = APIRouter(prefix="/api/analytics", tags=["Analytics"])
 
@@ -53,14 +54,14 @@ async def get_today_metrics():
     """Return live metrics for today. Returns empty model if pipeline hasn't run."""
     from analytics.pipeline import pipeline
     # Run pipeline to ensure metrics are fresh
-    metrics = await pipeline.run(date.today())
+    metrics = await pipeline.run(clock.today())
     return _metrics_response(metrics)
 
 
 @router.get("/history", response_model=list[DailyMetricsResponse])
 async def get_history(days: int = Query(default=7, ge=1, le=90)):
     """Return daily metrics for the last N days."""
-    today = date.today()
+    today = clock.today()
     results = []
     for i in range(days - 1, -1, -1):
         d = today - timedelta(days=i)
@@ -92,7 +93,7 @@ async def get_trend(
         raise HTTPException(status_code=404, detail=f"No trend data for '{metric}'")
 
     # Build data points from history
-    today = date.today()
+    today = clock.today()
     data_points = []
     for i in range(days - 1, -1, -1):
         d = today - timedelta(days=i)
@@ -119,7 +120,7 @@ async def get_weekly_summary():
     streak_trend = trends.get("retention_streak")
 
     return WeeklySummaryResponse(
-        week_start=(date.today() - timedelta(days=6)).isoformat(),
+        week_start=(clock.today() - timedelta(days=6)).isoformat(),
         avg_discipline=round(summary.get("avg_discipline", 0), 1),
         avg_alertness=round(summary.get("avg_alertness", 0), 1),
         total_ps_hrs=round(summary.get("total_ps_hrs", 0), 1),
@@ -169,7 +170,7 @@ async def check_in(req: CheckInRequest):
     from core.models import DailyMetrics
     
     try:
-        target_date = date.fromisoformat(req.date) if req.date else date.today()
+        target_date = date.fromisoformat(req.date) if req.date else clock.today()
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.")
 

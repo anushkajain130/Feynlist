@@ -13,6 +13,7 @@ from loguru import logger
 
 from core.models import DailyMetrics, HourlyPoint
 from data.database import db
+from core import clock
 
 
 class AnalyticsRepository:
@@ -55,7 +56,7 @@ class AnalyticsRepository:
     async def get_yesterday_metrics(self) -> Optional[DailyMetrics]:
         """Convenience: fetch yesterday's analytics for EWM weighting."""
         from datetime import timedelta
-        yesterday = date.today() - timedelta(days=1)
+        yesterday = clock.today() - timedelta(days=1)
         return await self.get_metrics_for_date(yesterday)
 
     async def upsert_metrics(self, metrics: DailyMetrics) -> None:
@@ -152,7 +153,7 @@ class AnalyticsRepository:
         useful for identifying peak productivity windows.
         """
         from datetime import timedelta
-        cutoff = (date.today() - timedelta(days=lookback_days)).isoformat()
+        cutoff = (clock.today() - timedelta(days=lookback_days)).isoformat()
         rows = await db.fetch_all(
             """
             SELECT hour, AVG(points) as avg_pts

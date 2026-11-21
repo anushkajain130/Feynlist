@@ -23,6 +23,7 @@ from api.schemas import (
     CouncilResponse, AgentStatusResponse,
 )
 from agents.orchestrator import orchestrator
+from core import clock
 from core.models import AgentId, AppEvent, EventType
 from core.exceptions import AgentCooldownError, AgentRuntimeError, AgentUnavailableError
 
@@ -337,7 +338,7 @@ async def get_tokens_today():
     try:
         # Get count of tokens used today from agent_messages
         # (matching current date prefix in timestamp column)
-        today_str = date.today().isoformat()
+        today_str = clock.today().isoformat()
         row = await db.fetch_one(
             "SELECT SUM(tokens_used) as t FROM agent_messages WHERE timestamp LIKE ?", 
             (f"{today_str}%",)

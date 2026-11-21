@@ -23,6 +23,7 @@ from core.exceptions import ToolExecutionError
 from data.repositories.task_repo import task_repo
 from tools.base_tool import BaseTool, ToolContext
 from analytics.pipeline import pipeline
+from core import clock
 
 
 # =============================================================================
@@ -67,7 +68,7 @@ class GetCurrentTasksTool(BaseTool):
             target = (
                 date.fromisoformat(input.target_date)
                 if input.target_date
-                else date.today()
+                else clock.today()
             )
             tasks = await task_repo.get_tasks_for_date(target)
         except Exception as e:
@@ -80,7 +81,7 @@ class GetCurrentTasksTool(BaseTool):
                 completed_count=0,
             )
 
-        now = datetime.now().time()
+        now = clock.now().time()
         current_task_obj = None
         upcoming_tasks: list = []
         past_tasks: list = []
@@ -154,7 +155,7 @@ class GetTaskSummaryTool(BaseTool):
             target = (
                 date.fromisoformat(input.target_date)
                 if input.target_date
-                else date.today()
+                else clock.today()
             )
             tasks = await task_repo.get_tasks_for_date(target)
         except Exception as e:
@@ -166,7 +167,7 @@ class GetTaskSummaryTool(BaseTool):
                 stats={"total": 0, "completed": 0, "completion_pct": 0},
             )
 
-        now = datetime.now().time()
+        now = clock.now().time()
         completed = [t for t in tasks if t.completed]
         past_incomplete = [t for t in tasks if t.is_past_at(now) and not t.completed]
         current = next((t for t in tasks if t.is_active_at(now)), None)
@@ -288,13 +289,13 @@ class GetMissedTasksTool(BaseTool):
             target = (
                 date.fromisoformat(input.target_date)
                 if input.target_date
-                else date.today()
+                else clock.today()
             )
             tasks = await task_repo.get_tasks_for_date(target)
         except Exception as e:
             raise ToolExecutionError(f"Failed to load tasks: {e}") from e
 
-        now = datetime.now().time()
+        now = clock.now().time()
         missed = [
             t for t in tasks
             if t.is_past_at(now) and not t.completed

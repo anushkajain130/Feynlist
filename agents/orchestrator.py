@@ -16,6 +16,8 @@ Two modes:
 
 from __future__ import annotations
 
+from collections import OrderedDict
+
 import asyncio
 import time
 from typing import Optional
@@ -308,5 +310,46 @@ class Orchestrator:
         return any(t in msg for t in council_triggers)
 
 
-# Singleton
-orchestrator = Orchestrator()
+# ---------------------------------------------------------------------------
+# Per-session orchestrators (demo mode)
+# ---------------------------------------------------------------------------
+# Each evaluator session gets its own runtimes, so chat memory and cooldowns
+# never leak between people. Outside a session the default instance is used.
+
+_default_orchestrator = Orchestrator()
+_session_orchestrators: "OrderedDict[str, Orchestrator]" = OrderedDict()
+
+
+def orchestrator_for_session(session_id: str | None) -> Orchestrator:
+    if session_id is None:
+        return _default_orchestrator
+    orch = _session_orchestrators.get(session_id)
+    if orch is None:
+        orch = Orchestrator()
+        _session_orchestrators[session_id] = orch
+        while len(_session_orchestrators) > settings.demo_max_sessions:
+            _session_orchestrators.popitem(last=False)
+    else:
+        _session_orchestrators.move_to_end(session_id)
+    return orch
+
+
+def drop_session_orchestrator(session_id: str) -> None:
+    _session_orchestrators.pop(session_id, None)
+
+
+class _OrchestratorProxy:
+    """`orchestrator` used everywhere; resolves to the current session's instance."""
+
+    def _target(self) -> Orchestrator:
+        from core.session import current_session_id
+        return orchestrator_for_session(current_session_id.get())
+
+    def __getattr__(self, name):
+        return getattr(self._target(), name)
+
+    def __setattr__(self, name, value):
+        setattr(self._target(), name, value)
+
+
+orchestrator = _OrchestratorProxy()

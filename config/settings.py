@@ -85,10 +85,27 @@ class Settings(BaseSettings):
     )
 
     # -------------------------------------------------------------------------
-    # Time zone for scheduled jobs (IANA name, e.g. "Europe/London"). Defaults to
-    # UTC so nothing is tied to one person's location.
+    # Default time zone (IANA name, e.g. "Europe/London") for "today"/"now" and for
+    # scheduled jobs. Requests from the browser use the browser's own zone instead.
+    # Empty = the server's local time.
     # -------------------------------------------------------------------------
-    app_timezone: str = Field(default="UTC", alias="APP_TIMEZONE")
+    app_timezone: str = Field(default="", alias="APP_TIMEZONE")
+
+    # -------------------------------------------------------------------------
+    # Public demo (evaluator) mode
+    # -------------------------------------------------------------------------
+    # true = every browser session gets its own throwaway database seeded with
+    # sample data (identified by the X-Feynlist-Session header).
+    demo_mode: bool = Field(default=False, alias="DEMO_MODE")
+    demo_data_dir: Path = Field(default=Path("/tmp/feynlist-demo"), alias="DEMO_DATA_DIR")
+    demo_max_sessions: int = Field(default=200, alias="DEMO_MAX_SESSIONS")
+
+    # Frontend origins allowed to call the API (comma-separated). "*" = any (local dev).
+    allowed_origins: str = Field(default="*", alias="ALLOWED_ORIGINS")
+
+    @property
+    def allowed_origin_list(self) -> list[str]:
+        return [o.strip().rstrip("/") for o in self.allowed_origins.split(",") if o.strip()]
 
     # (Persona configs live in agents/personas/*.yaml; see agents/runtime.PERSONAS_DIR.)
 

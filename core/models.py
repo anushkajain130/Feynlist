@@ -21,6 +21,15 @@ from pydantic import BaseModel, Field, computed_field, model_validator
 # =============================================================================
 
 
+# Points per block, by class (used when a plan is saved).
+CLASS_POINTS: dict[str, int] = {
+    "Academics_Selfstudy": 100, "Academic_Classes": 80, "Project": 90,
+    "Work": 85, "Side_Business": 80, "Book_Reading": 70,
+    "Yoga_and_Wellness": 60, "Self_Growth": 65, "ExtraActi": 50,
+    "Social": 40, "Break": 20, "Sleep": 10, "Unspecified": 30,
+}
+
+
 class TaskClass(str, Enum):
     """All valid task classification categories."""
 

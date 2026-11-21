@@ -16,6 +16,7 @@ from typing import Optional
 
 from loguru import logger
 
+from core import clock
 from core.models import DailyMetrics, Task, TaskClass
 from data.repositories.task_repo import task_repo
 from data.repositories.analytics_repo import analytics_repo
@@ -41,7 +42,7 @@ class AnalyticsPipeline:
         Defaults to today if no date given.
         """
         if target_date is None:
-            target_date = date.today()
+            target_date = clock.today()
 
         logger.info(f"Running analytics pipeline for {target_date}")
 
@@ -70,11 +71,11 @@ class AnalyticsPipeline:
             yesterday_streak = yesterday.retention_streak
 
         # 3. Compute all metrics
-        now = datetime.now().time()
+        now = clock.now().time()
 
         alertness = AlertnessMetric.compute(tasks, yesterday, now)
         discipline = DisciplineMetric.compute(
-            tasks, yesterday, now, day_over=target_date < date.today()
+            tasks, yesterday, now, day_over=target_date < clock.today()
         )
         ps_hrs = PSHoursMetric.compute(tasks)
         tasks_completed = sum(1 for t in tasks if t.completed)
@@ -83,7 +84,7 @@ class AnalyticsPipeline:
             commitment_kept=commitment_kept,
             tasks_completed=tasks_completed,
             tasks_total=len(tasks),
-            day_in_progress=target_date >= date.today(),
+            day_in_progress=target_date >= clock.today(),
         )
         study_planned = any(t.task_class == TaskClass.ACADEMICS_SELFSTUDY for t in tasks)
         aura = AuraMetric.compute(
@@ -121,10 +122,10 @@ class AnalyticsPipeline:
         Call this when a subtask is toggled or task completed.
         Logs the earned points to the current hour's bucket.
         """
-        current_hour = datetime.now().hour
+        current_hour = clock.now().hour
         earned = PointsMetric.compute_for_task(task)
         if earned > 0:
-            await analytics_repo.log_hourly_point(date.today(), current_hour, earned)
+            await analytics_repo.log_hourly_point(clock.today(), current_hour, earned)
 
 
 # Singleton

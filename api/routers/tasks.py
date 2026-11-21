@@ -27,6 +27,7 @@ from data.repositories.task_repo import task_repo
 from core.exceptions import RecordNotFoundError, DatabaseError
 from notifications.triggers import emit_task_completed, fire_and_forget
 from analytics.pipeline import pipeline
+from core import clock
 
 router = APIRouter(prefix="/api/tasks", tags=["Tasks"])
 
@@ -54,7 +55,7 @@ def _task_to_response(task: Task) -> TaskResponse:
 @router.get("/today", response_model=TaskListResponse)
 async def get_today_tasks():
     """Return today's full task list with completion stats."""
-    today = date.today()
+    today = clock.today()
     try:
         tasks = await task_repo.get_tasks_for_date(today)
     except DatabaseError as e:
@@ -102,8 +103,8 @@ async def get_tasks_for_date(target_date: str):
 @router.get("/today/current", response_model=TaskResponse | None)
 async def get_current_task():
     """Return the task currently active (by time window). Null if none."""
-    now = datetime.now().time()
-    tasks = await task_repo.get_tasks_for_date(date.today())
+    now = clock.now().time()
+    tasks = await task_repo.get_tasks_for_date(clock.today())
     current = next((t for t in tasks if t.is_active_at(now)), None)
     return _task_to_response(current) if current else None
 
@@ -184,11 +185,11 @@ async def set_schedule(req: ScheduleRequest):
     Clears existing tasks for that date first, then inserts the new list.
     """
     from api.schemas import ScheduleItemIn
-    from core.models import Task, TaskClass
+    from core.models import Task, TaskClass, CLASS_POINTS
     import uuid
 
     try:
-        target = date.fromisoformat(req.date) if req.date else date.today()
+        target = date.fromisoformat(req.date) if req.date else clock.today()
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.")
 
@@ -204,14 +205,7 @@ async def set_schedule(req: ScheduleRequest):
         except ValueError:
             tc = TaskClass.UNSPECIFIED
 
-        # Derive points from class
-        POINTS_MAP = {
-            "Academics_Selfstudy": 100, "Academic_Classes": 80, "Project": 90,
-            "Work": 85, "Side_Business": 80, "Book_Reading": 70,
-            "Yoga_and_Wellness": 60, "Self_Growth": 65, "ExtraActi": 50,
-            "Social": 40, "Break": 20, "Sleep": 10, "Unspecified": 30,
-        }
-        points = POINTS_MAP.get(tc.value, 30)
+        points = CLASS_POINTS.get(tc.value, 30)
 
         task_obj = Task(
             id=str(uuid.uuid4()),

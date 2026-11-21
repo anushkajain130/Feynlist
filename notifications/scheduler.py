@@ -36,12 +36,13 @@ from notifications.triggers import (
 )
 from analytics.pipeline import pipeline
 from datetime import date
+from core import clock
 
 
 async def _run_analytics_pipeline() -> None:
     """Wrapper for the analytics pipeline job."""
     try:
-        await pipeline.run(date.today())
+        await pipeline.run(clock.today())
     except Exception as e:
         logger.error(f"Scheduler: analytics pipeline failed: {e}")
 
@@ -81,7 +82,7 @@ class FeynlistScheduler:
     """
 
     def __init__(self):
-        self._scheduler = AsyncIOScheduler(timezone=settings.app_timezone)
+        self._scheduler = AsyncIOScheduler(timezone=settings.app_timezone or None)
         self._running = False
 
     def setup_jobs(self) -> None:
@@ -117,7 +118,7 @@ class FeynlistScheduler:
         # 06:00 daily (APP_TIMEZONE): Day start
         self._scheduler.add_job(
             _run_day_start,
-            trigger=CronTrigger(hour=6, minute=0, timezone=settings.app_timezone),
+            trigger=CronTrigger(hour=6, minute=0, timezone=settings.app_timezone or None),
             id="day_start",
             name="Day Start",
             replace_existing=True,
@@ -126,7 +127,7 @@ class FeynlistScheduler:
         # 23:00 daily (APP_TIMEZONE): Day end review + burnout check
         self._scheduler.add_job(
             _run_day_end,
-            trigger=CronTrigger(hour=23, minute=0, timezone=settings.app_timezone),
+            trigger=CronTrigger(hour=23, minute=0, timezone=settings.app_timezone or None),
             id="day_end",
             name="Day End Review",
             replace_existing=True,

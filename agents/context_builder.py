@@ -32,6 +32,7 @@ from data.repositories.task_repo import task_repo
 from tools.task_tools import GetTaskSummaryTool
 from tools.time_tools import GetTimeContextTool
 from tools.base_tool import ToolContext
+from core import clock
 
 
 class ContextBuilder:
@@ -120,7 +121,7 @@ class ContextBuilder:
 
         # 3. Analytics snapshot
         try:
-            metrics = await analytics_repo.get_metrics_for_date(date.today())
+            metrics = await analytics_repo.get_metrics_for_date(clock.today())
             if metrics:
                 sections.append(self._format_metrics(metrics))
         except Exception as e:
