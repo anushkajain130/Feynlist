@@ -169,36 +169,82 @@ async def ask_agent(agent_id: str, message: str, bypass_cooldown: bool = False):
 # WEBSOCKET — Real-Time Agent Stream
 # =============================================================================
 
+def ws_payload(msg, proactive: bool = False) -> dict:
+    """Serialize an AgentMessage for the websocket / nudges feed."""
+    debug_val = None
+    if msg.debug:
+        if isinstance(msg.debug, str):
+            try:
+                debug_val = json.loads(msg.debug)
+            except Exception:
+                debug_val = {"raw": msg.debug}
+        elif isinstance(msg.debug, dict):
+            debug_val = msg.debug
+    return {
+        "type": "agent_message",
+        "id": msg.id,
+        "agent_id": msg.agent_id.value,
+        "display_name": orchestrator.get_runtime(msg.agent_id).display_name,
+        "content": msg.content,
+        "triggered_by": msg.triggered_by.value if msg.triggered_by else None,
+        "proactive": proactive,
+        "timestamp": msg.timestamp.isoformat() if hasattr(msg.timestamp, "isoformat") else str(msg.timestamp),
+        "tool_used": msg.tool_used,
+        "input_tokens": getattr(msg, "input_tokens", 0),
+        "output_tokens": getattr(msg, "output_tokens", 0),
+        "tokens_used": getattr(msg, "tokens_used", 0),
+        "model_used": getattr(msg, "model_used", ""),
+        "latency_ms": getattr(msg, "latency_ms", 0),
+        "debug": debug_val,
+    }
+
+
 class ConnectionManager:
-    """Manages active WebSocket connections."""
+    """Manages active WebSocket connections, remembering each one's demo session."""
 
     def __init__(self):
-        self.active: list[WebSocket] = []
+        self.active: dict[WebSocket, str | None] = {}
 
     async def connect(self, ws: WebSocket) -> None:
+        from core.session import current_session_id
         await ws.accept()
-        self.active.append(ws)
+        self.active[ws] = current_session_id.get()
         logger.info(f"WS: client connected ({len(self.active)} total)")
 
     def disconnect(self, ws: WebSocket) -> None:
-        self.active.remove(ws)
+        self.active.pop(ws, None)
         logger.info(f"WS: client disconnected ({len(self.active)} remaining)")
 
-    async def broadcast(self, data: dict) -> None:
+    async def broadcast_session(self, session_id: str | None, data: dict) -> None:
+        """Send to every open socket of one session (or of single-user mode when None)."""
         dead = []
-        for ws in self.active:
+        for ws, sid in list(self.active.items()):
+            if sid != session_id:
+                continue
             try:
                 await ws.send_json(data)
             except Exception:
                 dead.append(ws)
         for ws in dead:
-            self.active.remove(ws)
+            self.active.pop(ws, None)
 
     async def send_to(self, ws: WebSocket, data: dict) -> None:
         await ws.send_json(data)
 
 
 ws_manager = ConnectionManager()
+
+
+async def _push_proactive(messages) -> None:
+    """Proactive nudges go straight to the session's open Council page."""
+    from core.session import current_session_id
+    sid = current_session_id.get()
+    for msg in messages:
+        await ws_manager.broadcast_session(sid, ws_payload(msg, proactive=True))
+
+
+from agents.orchestrator import PROACTIVE_LISTENERS  # noqa: E402
+PROACTIVE_LISTENERS.append(_push_proactive)
 
 
 @router.websocket("/ws")
@@ -287,31 +333,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
                 # Stream each agent response
                 for msg in messages:
-                    debug_val = None
-                    if msg.debug:
-                        if isinstance(msg.debug, str):
-                            try:
-                                debug_val = json.loads(msg.debug)
-                            except Exception:
-                                debug_val = {"raw": msg.debug}
-                        elif isinstance(msg.debug, dict):
-                            debug_val = msg.debug
-
-                    await ws_manager.send_to(websocket, {
-                        "type": "agent_message",
-                        "id": msg.id,
-                        "agent_id": msg.agent_id.value,
-                        "display_name": orchestrator.get_runtime(msg.agent_id).display_name,
-                        "content": msg.content,
-                        "timestamp": msg.timestamp.isoformat() if hasattr(msg.timestamp, "isoformat") else str(msg.timestamp),
-                        "tool_used": msg.tool_used,
-                        "input_tokens": getattr(msg, "input_tokens", 0),
-                        "output_tokens": getattr(msg, "output_tokens", 0),
-                        "tokens_used": getattr(msg, "tokens_used", 0),
-                        "model_used": getattr(msg, "model_used", ""),
-                        "latency_ms": getattr(msg, "latency_ms", 0),
-                        "debug": debug_val,
-                    })
+                    await ws_manager.send_to(websocket, ws_payload(msg))
                     await asyncio.sleep(0.05)  # Slight delay between messages
 
             except json.JSONDecodeError:
@@ -328,6 +350,24 @@ async def websocket_endpoint(websocket: WebSocket):
 
     except WebSocketDisconnect:
         ws_manager.disconnect(websocket)
+
+
+@router.get("/nudges")
+async def get_nudges(limit: int = 10):
+    """Most recent proactive (unprompted) coach messages, newest first."""
+    from data.database import db
+    limit = max(1, min(limit, 50))
+    rows = await db.fetch_all(
+        """
+        SELECT id, agent_id, content, triggered_by, model_used, timestamp
+        FROM agent_messages
+        WHERE triggered_by IS NOT NULL AND triggered_by != 'user_direct_message'
+        ORDER BY timestamp DESC, rowid DESC
+        LIMIT ?
+        """,
+        (limit,),
+    )
+    return {"nudges": [dict(r) for r in rows]}
 
 
 @router.get("/tokens/today")

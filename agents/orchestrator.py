@@ -32,6 +32,10 @@ from agents.runtime import AgentRuntime
 
 # Maps event types → which agent responds (SOLO mode). Only events that some
 # code path actually emits are listed (checked by tests/unit/test_triggers.py).
+# Async callbacks(messages) told about every proactive message (e.g. the websocket
+# manager pushes them to the session's open Council page).
+PROACTIVE_LISTENERS: list = []
+
 EVENT_AGENT_MAP: dict[EventType, AgentId] = {
     EventType.TASK_MISSED:           AgentId.FREYA,
     EventType.DAY_START:             AgentId.FREYA,
@@ -117,8 +121,12 @@ class Orchestrator:
         if not self._initialized:
             await self.initialize()
 
-        # Check global cooldown
-        if not self._global_cooldown_ok():
+        from core.session import bypass_cooldowns
+        is_chat = event.event_type == EventType.USER_DIRECT_MESSAGE
+
+        # Global cooldown limits unprompted (proactive) messages only; a person
+        # chatting is never blocked by it. Demo controls may bypass it.
+        if not is_chat and not bypass_cooldowns.get() and not self._global_cooldown_ok():
             remaining = int(self._global_cooldown_until - time.time())
             logger.debug(f"Orchestrator: global cooldown, {remaining}s remaining.")
             return []
@@ -127,12 +135,27 @@ class Orchestrator:
         mentioned_agent = self._detect_mention(event)
 
         # COUNCIL mode: user addressed the full council
-        if event.event_type == EventType.USER_DIRECT_MESSAGE and self._is_council_call(event):
+        if is_chat and self._is_council_call(event):
             return await self._invoke_council(event, raise_unavailable)
 
         # SOLO mode: pick one agent
         target_agent = mentioned_agent or EVENT_AGENT_MAP.get(event.event_type, AgentId.FREYA)
-        return await self._invoke_solo(target_agent, event, raise_unavailable)
+        messages = await self._invoke_solo(target_agent, event, raise_unavailable)
+        if not is_chat and messages:
+            await self._deliver_proactive(messages)
+        return messages
+
+    async def _deliver_proactive(self, messages: list[AgentMessage]) -> None:
+        """Hand unprompted messages to the current request (demo) and to live listeners."""
+        from core.session import proactive_sink
+        sink = proactive_sink.get()
+        if sink is not None:
+            sink.extend(messages)
+        for listener in list(PROACTIVE_LISTENERS):
+            try:
+                await listener(messages)
+            except Exception as e:
+                logger.warning(f"Orchestrator: proactive listener failed: {e}")
 
     # ------------------------------------------------------------------
     # SOLO INVOKE
@@ -145,11 +168,13 @@ class Orchestrator:
         runtime = self._runtimes[agent_id]
         user_message = event.payload.get("message", "") if event.payload else ""
 
+        from core.session import bypass_cooldowns
         try:
             message = await runtime.invoke(
                 user_message=user_message,
                 triggered_by=event.event_type,
                 memory_query=user_message,
+                bypass_cooldown=bypass_cooldowns.get(),
             )
             self._set_global_cooldown()
             return [message]

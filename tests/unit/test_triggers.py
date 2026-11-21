@@ -64,3 +64,30 @@ def test_unemitted_triggers_not_claimed(event):
     for name in NAMES:
         cfg = yaml.safe_load((ROOT / "agents" / "personas" / f"{name}.yaml").read_text())
         assert event not in cfg["triggers"]
+
+
+async def test_wiring_twice_does_not_double_dispatch():
+    from core.models import AppEvent
+    from core.startup import _wire_event_bus
+    from events.event_bus import event_bus
+    import events.rules_engine as re_mod
+
+    calls = []
+
+    class FakeOrch:
+        async def dispatch(self, e):
+            calls.append(e)
+
+    engine = RulesEngine()
+    original = re_mod.rules_engine
+    re_mod.rules_engine = engine
+    try:
+        for _ in range(2):
+            re_mod.register_default_rules(FakeOrch())
+        assert len([r for r in engine.list_rules() if r["event"] == "scheduled_checkin"]) == 1
+        _wire_event_bus(); _wire_event_bus()
+        assert len(event_bus._handlers[EventType.SCHEDULED_CHECKIN]) == 1
+        await engine.evaluate(AppEvent(event_type=EventType.SCHEDULED_CHECKIN, source="t", payload={}))
+        assert len(calls) == 1
+    finally:
+        re_mod.rules_engine = original

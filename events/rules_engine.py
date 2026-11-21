@@ -50,6 +50,9 @@ class RulesEngine:
         self._rules: list[Rule] = []
 
     def register(self, rule: Rule) -> None:
+        # Idempotent: re-registering a rule with the same name replaces it, so
+        # calling startup twice can never make an event dispatch twice.
+        self._rules = [r for r in self._rules if r.name != rule.name]
         self._rules.append(rule)
         self._rules.sort(key=lambda r: r.priority, reverse=True)
         logger.debug(f"RulesEngine: registered rule '{rule.name}' for {rule.event_type.value}")

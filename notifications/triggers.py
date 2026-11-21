@@ -38,23 +38,31 @@ async def emit_task_missed() -> None:
     for task in tasks:
         if task.is_past_at(now) and not task.completed:
             # Skip passive classes — no point alerting for sleep/break misses
-            if task.task_class.value in ("Sleep", "Break", "Deviated", "revived"):
+            if task.task_class.value in ("Sleep", "Break"):
                 continue
 
-            event = AppEvent(
-                event_type=EventType.TASK_MISSED,
-                source="scheduler",
-                payload={
-                    "task_id": task.id,
-                    "task_name": task.task,
-                    "end_time": task.end_time,
-                    "points": task.points,
-                    "class": task.task_class.value,
-                    "message": f"Task missed: '{task.task}' ended at {task.end_time}.",
-                },
-            )
-            logger.info(f"Trigger: TASK_MISSED → {task.task}")
-            await event_bus.publish(event)
+            await emit_task_missed_for(task)
+
+
+def task_missed_event(task, source: str = "scheduler") -> AppEvent:
+    return AppEvent(
+        event_type=EventType.TASK_MISSED,
+        source=source,
+        payload={
+            "task_id": task.id,
+            "task_name": task.task,
+            "end_time": task.end_time,
+            "points": task.points,
+            "class": task.task_class.value,
+            "message": f"Task missed: '{task.task}' ended at {task.end_time}.",
+        },
+    )
+
+
+async def emit_task_missed_for(task, source: str = "scheduler") -> None:
+    """Emit TASK_MISSED for one task (Freya)."""
+    logger.info(f"Trigger: TASK_MISSED → {task.task}")
+    await event_bus.publish(task_missed_event(task, source))
 
 
 async def emit_scheduled_checkin() -> None:
