@@ -74,12 +74,32 @@ Same environment as the baseline (Linux container, Python 3.13.18 venv plus 3.12
 | T-08 | Health | `/health` 200 with `db_ok` | As described | 1/1 passed | Executed-Pass | `tests/integration/test_health_api.py` |
 | T-09 | Smoke script | Skip reported honestly; `--require-llm` gives exit 2; failure/crash gives exit 1 | As described | 3/3 passed | Executed-Pass | `tests/unit/test_smoke_script.py` |
 
+### Cut list, demo mode and free-tier budget (executed 2026-11-21, commits up to `575f49f`)
+
+Full suite after these changes: **168 passed** on Python 3.13 (`evals/evidence/after_pytest_py313_step8.txt`). The model is stubbed or absent in every test below; **no live Gemini call was made**.
+
+| Test ID | Area | Scenario | Expected | Actual | Status | Evidence |
+|---|---|---|---|---|---|---|
+| T-10 | Triggers | Every routed event has an emitter in the code and a dispatching rule; persona YAML lists exactly its routed events; the 5 unemitted triggers aren't claimed; wiring twice doesn't double-dispatch | As described | 12/12 passed | Executed-Pass | `tests/unit/test_triggers.py` |
+| T-11 | Task-completed event | Completing a task (shortcut or last subtask) emits TASK_COMPLETED once; re-completing or un-completing doesn't | As described | 2/2 passed | Executed-Pass | `tests/integration/test_task_completed_event.py` |
+| T-12 | Percentile | Fewer than 14 days of history: tool and endpoint say "not enough history"; after 14 days: a percentile | As described | 2/2 passed | Executed-Pass | `tests/integration/test_percentile_history.py` |
+| T-13 | Demo sessions (API) | No/invalid session id → 400; new session seeded with 14+ days and a 12-block plan; two sessions isolated; reset restores sample; browser zone decides "today" (UTC+14 vs UTC−11); concurrent first requests seed once; LRU eviction deletes files; demo endpoints off without demo mode | As described | 8/8 passed | Executed-Pass | `tests/integration/test_demo_sessions.py` |
+| T-14 | Demo controls (API, stubbed model) | missed-task → Freya, complete-task → Albedo, end-of-day → Anya, check-in → ZeroTwo; repeated controls bypass cooldowns; complete-task completes one block; nudges are per session; websocket push reaches only that session's socket; chat not blocked by the global cooldown | As described | 9/9 passed | Executed-Pass | `tests/integration/test_demo_triggers.py` |
+| T-15 | Free-tier budget (API, stubbed model) | 2 live replies then samples; chat + demo controls share the budget; reset doesn't refill; per-session budgets; global daily cap; per-minute guard; a failed call refunds the session; Council (all five) and automatic nudges are free samples; no scheduled LLM jobs by default | As described | 10/10 passed | Executed-Pass | `tests/integration/test_ai_budget.py` |
+| T-16 | Sample mode, no key (API + websocket) | No key → labelled sample (not 503); stubbed 429 → labelled sample, no provider text over REST or websocket | As described | Passed (part of T-04 file, 13 tests) | Executed-Pass | `tests/integration/test_agent_errors_api.py` |
+| E-01 | E2E demo mode (browser) | Two browsers (desktop + phone) on a DEMO_MODE backend: each sees its own seeded data; "Complete a task" control moves 7/12 → 8/12 in one session only; reset restores 7/12; analytics shows charts | As described | As expected, no page errors | Executed-Pass | `evals/evidence/e2e_demo_mode.txt`, `evals/evidence/demo_*.png` |
+| E-02 | E2E sample mode (browser, no key) | Council shows "Showing sample replies (no live AI on this server)." and the free-API notice; Freya's chat reply and a missed-task nudge both carry "Sample reply (pre-written, not live)" plus the reason; samples use only real numbers ("7 of 12 blocks", the real task name) | As described | As expected, no page errors | Executed-Pass | `evals/evidence/e2e_sample_mode.txt`, `evals/evidence/sample_mode_*.png` |
+| E-03 | E2E cold start (browser) | Backend down: "Waking the server, this can take up to a minute…" (no empty-account text); backend started: page loads by itself ~5 s later | As described | As expected | Executed-Pass | `evals/evidence/e2e_backend_down_recovery.txt` |
+| E-04 | Phone layout, demo mode | Same 16-view overflow check with the new demo and nudge panels | 0 overflow, 0 page errors | 0 / 0 on all 16 views | Executed-Pass | `evals/evidence/after_responsive_check.txt` |
+
 ### Still open / not verified
 
-- **Truncated persona replies (issue 4)** were never reproduced live. The fix (thinking off, 300-token limit, MAX_TOKENS trimming) is tested only against a stubbed client, so this is **not verified against the real model**. It needs a live run with the owner's key (P-09).
-- **No persona behaviour has been tested against a live model.** T-03 only checks the prompt text, not what the model says. P-01 to P-08 remain Proposed.
-- Full-page screenshots capture the visible screen only, because pages scroll inside the main area.
-- Proactive nudges are still never delivered to the UI (websocket `broadcast()` unused), and several persona triggers are never emitted. These are scheduled for the cut-list/demo work and are not fixed yet.
+- **No live model call has been made in any eval.** The live path of the budget (2 live replies, then samples), the truncation fix (issue 4) and all persona behaviour are verified only with a stubbed model. They need a small live batch with the owner's key (P-01 to P-09).
+- **Sample replies were written in this session (Claude Code), in each coach's style.** They are checked to use only real session facts, but nobody else has reviewed them.
+- **Budget counters live in a file on the server.** On a free host with an ephemeral disk, a restart resets them; Google's own quota (429 → labelled sample) is then the backstop. Clearing browser storage creates a new session with 2 new live replies; the global daily cap bounds the total.
+- **Not built:** the optional "use your own Gemini key" field.
+- **Not deployed yet.** No checks have been run against live URLs (Vercel/Render), and there is no deploy kit (`render.yaml`, `DEPLOY.md`) yet.
+- **Screenshots** capture the visible screen only, because pages scroll inside the main area.
 
 ## Proposed (not yet run)
 
