@@ -451,16 +451,26 @@ class TrendAnalyzer:
     # PERCENTILE RANKING
     # ------------------------------------------------------------------
 
-    async def get_percentile(self, metric: str, value: float) -> float:
+    # A percentile against a handful of days is meaningless ("top 0% of your days").
+    MIN_DAYS_FOR_PERCENTILE = 14
+
+    async def history_days(self) -> int:
+        """Number of days with recorded activity."""
+        records = await analytics_repo.get_metrics_for_range(date(2024, 1, 1), date.today())
+        return sum(1 for r in records if r.tasks_total > 0)
+
+    async def get_percentile(self, metric: str, value: float) -> float | None:
         """
-        Returns what percentile the given value is in,
-        relative to all historical records for that metric.
+        Returns what percentile the given value is in, relative to all historical
+        records for that metric, or None if there are fewer than
+        MIN_DAYS_FOR_PERCENTILE days of history.
         """
         records = await analytics_repo.get_metrics_for_range(
             date(2024, 1, 1), date.today()
         )
-        if not records:
-            return 0.0
+        records = [r for r in records if r.tasks_total > 0]
+        if len(records) < self.MIN_DAYS_FOR_PERCENTILE:
+            return None
 
         all_values = sorted(getattr(r, metric, 0.0) for r in records)
         rank = sum(1 for v in all_values if v <= value)
@@ -518,6 +528,13 @@ class TrendAnalyzer:
 
         disc_pct = await self.get_percentile("discipline", target_metrics.discipline)
         aura_pct = await self.get_percentile("aura", target_metrics.aura)
+        if disc_pct is None or aura_pct is None:
+            return {
+                "date": target_date.isoformat(),
+                "has_data": True,
+                "enough_history": False,
+                "message": f"Percentiles need at least {self.MIN_DAYS_FOR_PERCENTILE} days of history.",
+            }
 
         return {
             "date": target_date.isoformat(),
@@ -526,6 +543,7 @@ class TrendAnalyzer:
             "aura": target_metrics.aura,
             "aura_pct": aura_pct,
             "has_data": True,
+            "enough_history": True,
         }
 
     async def get_7day_summary_with_best_worst(self) -> dict:
