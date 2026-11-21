@@ -1,0 +1,10 @@
+[desktop] / status=200 scrollWidth=1366 innerWidth=1366 
+[desktop] /analytics status=200 scrollWidth=1366 innerWidth=1366 
+[desktop] /council status=200 scrollWidth=1366 innerWidth=1366 
+[desktop] console.error: Failed to load resource: the server responded with a status of 404 (Not Found)
+[desktop] /settings status=404 scrollWidth=1366 innerWidth=1366 
+[phone] / status=200 scrollWidth=390 innerWidth=390 
+[phone] /analytics status=200 scrollWidth=390 innerWidth=390 
+[phone] /council status=200 scrollWidth=390 innerWidth=390 
+[phone] console.error: Failed to load resource: the server responded with a status of 404 (Not Found)
+[phone] /settings status=404 scrollWidth=390 innerWidth=390 

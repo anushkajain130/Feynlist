@@ -1,0 +1,44 @@
+### http://127.0.0.1:8000/health
+{"status":"healthy","db_ok":true,"scheduler_running":true,"agents_ready":0,"version":"1.0.0"}
+HTTP 200
+
+### http://127.0.0.1:8000/api/tasks/today
+{"date":"2026-11-21","tasks":[],"total":0,"completed":0,"completion_pct":0.0}
+HTTP 200
+
+### http://127.0.0.1:8000/api/analytics/today
+{"date":"2026-11-21","alertness":0.0,"discipline":0.0,"ps_hrs":0.0,"aura":0.0,"retention_streak":0,"total_points":0,"tasks_completed":0,"tasks_total":0,"completion_rate":0.0,"has_data":true,"kept_commitment":null}
+HTTP 200
+
+### -X POST http://127.0.0.1:8000/api/tasks/schedule -H Content-Type: application/json -d {"tasks":[{"name":"Revise chapter 3","start_time":"00:00","end_time":"00:30","task_class":"Academics_Selfstudy"},{"name":"Sleep","start_time":"22:00","end_time":"06:00","task_class":"Sleep"}]}
+{"date":"2026-11-21","tasks_created":2}
+HTTP 201
+
+### -X POST http://127.0.0.1:8000/api/tasks/toggle-subtask -H Content-Type: application/json -d {"task_id":"a94cc192-abac-40ce-8d2c-afceddc753cc","subtask_name":"Start_and_Sit_for_5_mins","value":true}
+{"success":true,"task":{"id":"a94cc192-abac-40ce-8d2c-afceddc753cc","date":"2026-11-21","task":"Revise chapter 3","start_time":"00:00","end_time":"00:30","points":100,"completed":false,"task_class":"Academics_Selfstudy","sub_class":null,"sub_class2":null,"start_and_sit":true,"complete_task":false,"be_attentive":false,"slider_val":100,"ps_var":0.5}}
+HTTP 200
+
+### http://127.0.0.1:8000/api/analytics/today
+{"date":"2026-11-21","alertness":0.0,"discipline":100.0,"ps_hrs":0.0,"aura":0.0,"retention_streak":0,"total_points":50,"tasks_completed":0,"tasks_total":2,"completion_rate":0.0,"has_data":true,"kept_commitment":null}
+HTTP 200
+
+### http://127.0.0.1:8000/api/analytics/history?days=14
+[{"date":"2026-11-21","alertness":0.0,"discipline":100.0,"ps_hrs":0.0,"aura":0.0,"retention_streak":0,"total_points":50,"tasks_completed":0,"tasks_total":2,"completion_rate":0.0,"has_data":true,"kept_commitment":null}]
+HTTP 200
+
+### http://127.0.0.1:8000/api/analytics/burnout
+{"detected":false,"severity":"none","factors":[],"recommendation":"Not enough data to assess burnout."}
+HTTP 200
+
+### http://127.0.0.1:8000/api/agents/status
+{"agents":{"freya":{"ready":false,"seconds_until_ready":0},"albedo":{"ready":false,"seconds_until_ready":0},"anya":{"ready":false,"seconds_until_ready":0},"zerotwo":{"ready":false,"seconds_until_ready":0},"mohini":{"ready":false,"seconds_until_ready":0}},"ai_configured":false}
+HTTP 200
+
+### -X POST http://127.0.0.1:8000/api/agents/message -H Content-Type: application/json -d {"message":"hi","agent_id":"freya"}
+{"detail":"Live AI replies aren't set up on this server, so the Council can't answer right now. Your plan and stats still work."}
+HTTP 503
+
+### http://127.0.0.1:8000/api/agents/tokens/today
+{"total_tokens_today":0}
+HTTP 200
+

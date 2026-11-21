@@ -1,0 +1,3 @@
+/ | banner: true | shows empty-account text: false | tells user to run uvicorn: false -> after_backend_down_home.png
+/analytics | banner: true | shows empty-account text: false | tells user to run uvicorn: false -> after_backend_down_analytics.png
+/council | banner: true | shows empty-account text: false | tells user to run uvicorn: false -> after_backend_down_council.png

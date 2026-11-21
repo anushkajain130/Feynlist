@@ -1,8 +1,13 @@
 // Phone-width check (390px, iPhone 13 profile) + desktop, with screenshots.
 // Reports elements whose box extends past the viewport (clipped/unreachable content).
-// Usage: node evals/evidence/responsive_check.js <out_dir> <prefix> [frontend_url]
+// Seeds today's plan with frontend/src/lib/dayTemplate.json via the API first
+// (replaces today's tasks in whatever DB the backend uses: run it on a scratch DB).
+// Usage: node evals/evidence/responsive_check.js <out_dir> <prefix> [frontend_url] [api_url]
 const { chromium, devices } = require('playwright');
+const path = require('path');
 const out = process.argv[2]; const prefix = process.argv[3]; const base = process.argv[4] || 'http://localhost:3000';
+const api = process.argv[5] || 'http://127.0.0.1:8000';
+const template = require(path.join(__dirname, '..', '..', 'frontend', 'src', 'lib', 'dayTemplate.json'));
 async function overflow(page) {
   return page.evaluate(() => {
     const W = window.innerWidth; const bad = [];
@@ -16,6 +21,8 @@ async function overflow(page) {
   });
 }
 (async () => {
+  const seed = await fetch(`${api}/api/tasks/schedule`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tasks: template }) });
+  if (!seed.ok) throw new Error(`seeding failed: HTTP ${seed.status}`);
   const browser = await chromium.launch();
   const results = [];
   for (const [label, opts] of [['phone', devices['iPhone 13']], ['desktop', { viewport: { width: 1366, height: 900 }, deviceScaleFactor: 1 }]]) {

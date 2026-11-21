@@ -33,6 +33,54 @@ Statuses: **Executed-Pass**, **Executed-Fail** or **Proposed** (not yet run). A 
 | B-19 | Metrics: Aura cold start | `AuraMetric.compute` with streak 0 and 1; also observed via API on a fresh DB | Records current behaviour (no pass/fail target yet) | streak=0 gives 0.0; streak=1 gives 0.6576. On a fresh DB with no tasks the UI shows 0.00. After the first schedule, the pipeline sets streak=1 without any check-in, and Aura became 0.296 | Executed-Pass (behaviour recorded) | `evals/evidence/baseline_metric_probe.txt` (AU1), `evals/evidence/baseline_api_smoke.txt` |
 | B-20 | Smoke script | `python -m scripts.smoke_test` on a fresh DB, no key | Reports failures honestly | Prints `❌ db_tasks_loaded: 0`, `❌ response_chars: 0`, then `🎉 ALL CHECKS PASSED — System is operational` | Executed-Fail | `evals/evidence/baseline_smoke_test.txt` |
 
+## After fixes (re-run 2026-11-21, after commits up to `2e894e9`)
+
+Same environment as the baseline (Linux container, Python 3.13.18 venv plus 3.12.3 and 3.11.18 venvs, Node 22.23.5, Chromium via Playwright). There was still no Gemini API key, so no live LLM call was made. The backend ran on a fresh scratch database.
+
+| Test ID | Area | Scenario | Expected | Actual (after fixes) | Status | Evidence |
+|---|---|---|---|---|---|---|
+| B-01 | Install (backend) | `pip install .` in a fresh Python 3.13 venv (also run on 3.12) | Installs | `Successfully built feynlist` / installed on 3.13 and 3.12 | Executed-Pass | `evals/evidence/after_B01_pip_install_dot.txt`, `evals/evidence/after_pip_install_dot_py312.txt` |
+| B-02 | Install (backend) | Dependency install | Installs | Covered by B-01 (`pip install .` now installs all dependencies) | Executed-Pass | `evals/evidence/after_B01_pip_install_dot.txt` |
+| B-03 | Install (frontend) | `npm ci` from a deleted `node_modules` | Clean install from lockfile | 403 packages added; lockfile regenerated and in sync | Executed-Pass | `evals/evidence/after_npm_ci.txt` |
+| B-04 | Install (frontend) | `npm install --no-save` workaround | Not needed any more | Superseded by B-03 | Executed-Pass | `evals/evidence/after_npm_ci.txt` |
+| B-05 | Tests | Full pytest suite on Python 3.13 | All pass | 125 passed (60 original unit tests, some rewritten for the new metric definitions, plus 65 new) | Executed-Pass | `evals/evidence/after_pytest_py313.txt` |
+| B-06 | Python version | Full suite on 3.12 and 3.11; `requires-python` lowered to >=3.11 | Pass | 125 passed on 3.12.3; 125 passed on 3.11.18 | Executed-Pass | `evals/evidence/after_pytest_py312.txt`, `evals/evidence/after_pytest_py311.txt` |
+| B-07 | Build (frontend) | `npm run build` | Succeeds | Compiled; routes `/`, `/about`, `/analytics`, `/council` (Settings removed) | Executed-Pass | `evals/evidence/after_npm_build.txt` |
+| B-08 | Lint (frontend) | `npm run lint` | No errors | 0 errors, 0 warnings, exit 0 | Executed-Pass | `evals/evidence/after_npm_lint.txt` |
+| B-09 | Backend start | `uvicorn api.main:app`, no key | Starts, says AI is unavailable | Starts; log says agents failed to init with reason `no_api_key`; no tracebacks | Executed-Pass | `evals/evidence/after_backend_server.txt` |
+| B-10 | Health endpoint | `GET /health` | 200 | 200 `{"status":"healthy","db_ok":true,...}` | Executed-Pass | `evals/evidence/after_api_smoke.txt` |
+| B-11 | Frontend start | Load all routes | Render | `/`, `/analytics`, `/council` return 200. `/settings` now returns 404 (intentionally removed; replaced by `/about`) | Executed-Pass | `evals/evidence/after_browser_pages.txt` |
+| B-12 | Plan → track → analytics (API) | Same calls as baseline: past 00:00–00:30 study task plus a 22:00–06:00 sleep block, Start & Sit on the study task | Discipline 100%, sleep block not missed | Schedule 201, toggle 200, **Discipline 100.0** | Executed-Pass | `evals/evidence/after_api_smoke.txt` |
+| B-13 | AI error handling | POST `/api/agents/message` to Freya, no key | Friendly message, no raw error | HTTP 503 `Live AI replies aren't set up on this server...`; no env var or `.env` text | Executed-Pass | `evals/evidence/after_api_smoke.txt` |
+| B-14 | Council UI status | Open `/council` with 0 agents ready | Says AI is unavailable | Header: `Connected · AI replies unavailable` | Executed-Pass | `evals/evidence/after_council_status.txt`, `evals/evidence/after_desktop_council.png` |
+| B-15 | Mobile layout | 8 views at 390px (iPhone 13 profile) and 1366px: home, task expanded, planner, check-in, Aura info, analytics, council, about | Nothing clipped | 0 elements past the viewport and 0 page errors on all 16 views. The same script on baseline code found 73 (home), 64 (planner), 177 (Aura info), 4 (analytics), 1 (council) | Executed-Pass | `evals/evidence/after_responsive_check.txt`, `evals/evidence/before_responsive_check.txt`, `evals/evidence/after_phone_*.png`, `evals/evidence/before_phone_*.png` |
+| B-16 | Backend-down state | Backend stopped; load `/`, `/analytics`, `/council`; then start the backend | Clear unreachable message; recovers | Banner on all three pages, no empty-account text, no `uvicorn` instructions. Banner gone ~5s after the backend started, without a manual reload | Executed-Pass | `evals/evidence/after_backend_down.txt`, `evals/evidence/after_backend_down_*.png`, `evals/evidence/e2e_backend_down_recovery.txt` |
+| B-17 | Metrics: midnight-crossing task | Discipline at 10:00 with a started 08–09 task and a 22:00–06:00 sleep block | 100% | 100.0; `is_past_at(10:00)` = False; active at 23:00 | Executed-Pass | `evals/evidence/after_metric_probe.txt` (D1, D2) |
+| B-18 | Metrics: Alertness timing | 09:30; 08–09 task finished with focus 100; two future tasks | 100% | 100.0 at 09:30 and at 19:30. Note: re-running the *baseline* probe unchanged gives 0.0, because it builds a task marked completed but not attentive, which the app never saves; under the new definition that counts as "nothing rated" | Executed-Pass | `evals/evidence/after_metric_probe.txt` (A1–A3), `evals/evidence/after_baseline_probe_rerun.txt` |
+| B-19 | Metrics: Aura cold start | Aura on day 1 / streak 0 | Records behaviour | Formula unchanged (streak 0 gives 0.0). The streak no longer auto-starts at 1 just because tasks exist (API showed streak 0, Aura 0.0, check-in `null`), and the UI shows "—" with "Starts after your first counted day". Without Study blocks, a perfect 3-day streak gives 1.39 instead of being capped at ×0.45 | Executed-Pass (behaviour recorded) | `evals/evidence/after_metric_probe.txt` (AU1), `evals/evidence/after_api_smoke.txt`, `evals/evidence/after_phone_home.png` |
+| B-20 | Smoke script | `python -m scripts.smoke_test`, no key; then with `--require-llm` | Honest report | `4 passed, 0 failed, 1 skipped` / `RESULT: PASSED WITH SKIPS: live_llm not tested`, exit 0; with `--require-llm` exit 2. Failure path (exit 1) covered by a unit test | Executed-Pass | `evals/evidence/after_smoke_test.txt`, `tests/unit/test_smoke_script.py` |
+
+### New automated tests (all executed in B-05; 125 passed)
+
+| Test ID | Area | Scenario | Expected | Actual | Status | Evidence |
+|---|---|---|---|---|---|---|
+| T-01 | Check-in & streak (API, temp DB) | "Yes" starts the streak; "Not today" resets it; scheduling alone doesn't grow it; it carries over from a counted yesterday; the old payload is rejected | As described | 5/5 passed | Executed-Pass | `tests/integration/test_checkin_api.py`, `evals/evidence/after_pytest_py313.txt` |
+| T-02 | Streak rules (unit) | Threshold, in-progress day, no-task check-in, new user | As described | 8/8 passed | Executed-Pass | `tests/unit/test_metrics.py::TestConsistencyStreakMetric` |
+| T-03 | Personas (static) | Required fields, banned-term scan (the old personas fail it), shared rules present, five distinct roles, `model_tier` only | As described | 16/16 passed | Executed-Pass | `tests/unit/test_personas.py` |
+| T-04 | AI errors (API + websocket, stubbed provider) | No key, and a stubbed 429 with provider text, over REST and websocket; error classification; status flag; personas resolve to Flash models | Friendly text only, no raw provider text | 11/11 passed | Executed-Pass | `tests/integration/test_agent_errors_api.py` |
+| T-05 | Metrics (unit) | Alertness new definition, midnight-crossing tasks, Study factor, burnout skips unrated days | As described | All passed (41 tests in file) | Executed-Pass | `tests/unit/test_metrics.py` |
+| T-06 | Truncation (unit, stubbed client) | Thinking budget 0 sent; MAX_TOKENS detected; reply trimmed to the last full sentence | As described | 7/7 passed | Executed-Pass | `tests/unit/test_response_parser.py` |
+| T-07 | Template | Only picker classes; one midnight-crossing Sleep block that isn't counted missed; saves through the API | As described | 4/4 passed | Executed-Pass | `tests/integration/test_day_template.py` |
+| T-08 | Health | `/health` 200 with `db_ok` | As described | 1/1 passed | Executed-Pass | `tests/integration/test_health_api.py` |
+| T-09 | Smoke script | Skip reported honestly; `--require-llm` gives exit 2; failure/crash gives exit 1 | As described | 3/3 passed | Executed-Pass | `tests/unit/test_smoke_script.py` |
+
+### Still open / not verified
+
+- **Truncated persona replies (issue 4)** were never reproduced live. The fix (thinking off, 300-token limit, MAX_TOKENS trimming) is tested only against a stubbed client, so this is **not verified against the real model**. It needs a live run with the owner's key (P-09).
+- **No persona behaviour has been tested against a live model.** T-03 only checks the prompt text, not what the model says. P-01 to P-08 remain Proposed.
+- Full-page screenshots capture the visible screen only, because pages scroll inside the main area.
+- Proactive nudges are still never delivered to the UI (websocket `broadcast()` unused), and several persona triggers are never emitted. These are scheduled for the cut-list/demo work and are not fixed yet.
+
 ## Proposed (not yet run)
 
 These come from the CLAUDE.md eval plan. Persona rows need a live Gemini key, which the owner supplies in a local gitignored `.env`, and will run in small batches.
@@ -46,5 +94,6 @@ These come from the CLAUDE.md eval plan. Persona rows need a live Gemini key, wh
 | P-05 | Personas | Tone scan of replies | No romantic, possessive or guilt-inducing language | — | Proposed | — |
 | P-06 | Personas | Burnout heuristic firing | Rest encouraged | — | Proposed | — |
 | P-07 | Proactive nudges | Repeated triggers | Cooldowns respected, no repeats | — | Proposed | — |
-| P-08 | AI errors | Model returns 429 or another error | Friendly message, falls back to sample mode | — | Proposed | — |
-| P-09 | E2E journey | Plan a day, mark subtasks, see analytics update, refresh and confirm persistence (browser) | Loop works end to end | — | Proposed | — |
+| P-08 | AI errors | A *live* model returns 429 or another error | Friendly message, falls back to sample mode | Friendly message verified with a stubbed provider only (T-04); sample-mode fallback not built yet | Proposed | — |
+| P-09 | Truncation (live) | Several live persona replies at max_output_tokens=300 with thinking off | No reply ends mid-sentence | — | Proposed | — |
+| P-10 | E2E journey | Plan a day, mark subtasks, see analytics update, refresh and confirm persistence (browser) | Loop works end to end | — | Proposed | — |
