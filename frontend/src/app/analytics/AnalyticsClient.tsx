@@ -87,7 +87,7 @@ export default function AnalyticsClient({ history, weekly, burnout, backendUnrea
           {[
             { label: "7-Day Discipline", value: `${weekly.avg_discipline.toFixed(0)}%`, color: "#7c5cfc" },
             { label: "7-Day Alertness", value: `${weekly.avg_alertness.toFixed(0)}%`, color: "#818cf8" },
-            { label: "Total PS Hours", value: `${weekly.total_ps_hrs.toFixed(1)}h`, color: "#34d399" },
+            { label: "Total Study Hours", value: `${weekly.total_ps_hrs.toFixed(1)}h`, color: "#34d399" },
             { label: "Avg Aura", value: weekly.avg_aura.toFixed(3), color: "#f472b6" },
           ].map(({ label, value, color }) => (
             <div key={label} className="glass" style={{ padding: "16px 20px" }}>
@@ -157,7 +157,7 @@ export default function AnalyticsClient({ history, weekly, burnout, backendUnrea
           )}
         </ChartCard>
 
-        <ChartCard title="PS Hours (14 days)">
+        <ChartCard title="Study Hours (14 days)">
           {chartData.length === 0 ? emptyState : (
             <ResponsiveContainer width="100%" height={160}>
               <BarChart data={chartData}>

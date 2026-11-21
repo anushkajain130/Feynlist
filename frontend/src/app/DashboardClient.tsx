@@ -6,6 +6,7 @@ import { CheckCircle2, Circle, Clock, Zap, Brain, Target, Flame, Plus, Trash2, C
 import { api, Task, TaskListResponse, DailyMetrics } from "@/lib/api";
 import clsx from "clsx";
 import BackendStatus from "@/components/BackendStatus";
+import dayTemplate from "@/lib/dayTemplate.json";
 
 interface Props {
   initialTasks: TaskListResponse | null;
@@ -33,45 +34,34 @@ const CLASS_COLORS: Record<string, string> = {
   Project: "#fbbf24",
   Work: "#f472b6",
   Yoga_and_Wellness: "#34d399",
-  Side_Business: "#a78bfa",
   Book_Reading: "#60a5fa",
-  Social: "#f97316",
   Break: "#6b7280",
   Sleep: "#4b5563",
-  Deviated: "#ef4444",
-  revived: "#10b981",
   Unspecified: "#9ca3af",
 };
 
+// Short, student-friendly class list. Older class values (e.g. Work, Unspecified) still
+// display correctly for existing data but aren't offered in the picker.
 const DEFAULT_CLASSES = [
-  { value: "Yoga_and_Wellness", label: "Yoga & Wellness" },
-  { value: "Academics_Selfstudy", label: "Academics Selfstudy" },
-  { value: "Academic_Classes", label: "Academic Classes" },
-  { value: "Project", label: "Project" },
-  { value: "Work", label: "Work" },
-  { value: "Side_Business", label: "Side Business" },
-  { value: "Book_Reading", label: "Book Reading" },
-  { value: "Social", label: "Social" },
+  { value: "Academics_Selfstudy", label: "Study" },
+  { value: "Academic_Classes", label: "Class" },
+  { value: "Project", label: "Project / Work" },
+  { value: "Book_Reading", label: "Reading" },
+  { value: "Yoga_and_Wellness", label: "Wellness" },
   { value: "Break", label: "Break" },
   { value: "Sleep", label: "Sleep" },
-  { value: "Self_Growth", label: "Self Growth" },
-  { value: "ExtraActi", label: "Extra Activity" },
-  { value: "Unspecified", label: "Unspecified" },
 ];
 
-const GUIDELINE_SCHEDULE: EditableTask[] = [
-  { name: "Yoga and Wellness", start_time: "06:00", end_time: "07:00", task_class: "Yoga_and_Wellness", sub_class: null },
-  { name: "Academics Selfstudy", start_time: "07:00", end_time: "09:00", task_class: "Academics_Selfstudy", sub_class: null },
-  { name: "Project Development", start_time: "09:00", end_time: "10:00", task_class: "Project", sub_class: null },
-  { name: "Academics Classes", start_time: "10:00", end_time: "12:00", task_class: "Academic_Classes", sub_class: null },
-  { name: "Midday Break & Lunch", start_time: "12:00", end_time: "13:00", task_class: "Break", sub_class: null },
-  { name: "Side Business Focus", start_time: "13:00", end_time: "15:00", task_class: "Side_Business", sub_class: null },
-  { name: "Afternoon Deep Work", start_time: "15:00", end_time: "17:00", task_class: "Academics_Selfstudy", sub_class: null },
-  { name: "Evening Social & Wellness", start_time: "17:00", end_time: "19:00", task_class: "Yoga_and_Wellness", sub_class: null },
-  { name: "Dinner & Winding Down", start_time: "19:00", end_time: "21:00", task_class: "Break", sub_class: null },
-  { name: "Book Reading & Self Reflection", start_time: "21:00", end_time: "22:00", task_class: "Book_Reading", sub_class: null },
-  { name: "Sleep & Regeneration", start_time: "22:00", end_time: "06:00", task_class: "Sleep", sub_class: null },
-];
+const CLASS_LABELS: Record<string, string> = {
+  ...Object.fromEntries(DEFAULT_CLASSES.map(c => [c.value, c.label])),
+  Work: "Project / Work",
+  Unspecified: "Other",
+};
+
+const classLabel = (value: string) => CLASS_LABELS[value] ?? value.replace(/_/g, " ");
+
+// Generic example day (also covered by tests/integration/test_day_template.py).
+const GUIDELINE_SCHEDULE: EditableTask[] = dayTemplate as EditableTask[];
 
 function StatCard({ label, value, sub, icon: Icon, color }: {
   label: string; value: string | number; sub?: string;
@@ -176,7 +166,7 @@ function TaskRow({
           <span style={{
             fontSize: "10px", padding: "2px 8px", borderRadius: "20px",
             background: `${color}22`, color, fontWeight: 500,
-          }}>{task.task_class.replace(/_/g, " ")}</span>
+          }}>{classLabel(task.task_class)}</span>
           <span style={{ marginLeft: "auto", fontSize: "12px", color: "var(--text-muted)" }}>
             {task.points}pts
           </span>
@@ -392,9 +382,7 @@ export default function DashboardClient({ initialTasks, initialMetrics, backendU
       })));
     } else {
       setPlanTasks([
-        { name: "Yoga and Wellness", start_time: "06:00", end_time: "07:00", task_class: "Yoga_and_Wellness", sub_class: null },
-        { name: "Academics Selfstudy", start_time: "07:00", end_time: "09:00", task_class: "Academics_Selfstudy", sub_class: null },
-        { name: "Project Development", start_time: "09:00", end_time: "10:00", task_class: "Project", sub_class: null },
+        { name: "", start_time: "09:00", end_time: "10:00", task_class: "Academics_Selfstudy", sub_class: null },
       ]);
     }
     setPlanError(null);
@@ -416,7 +404,7 @@ export default function DashboardClient({ initialTasks, initialMetrics, backendU
       const endH = (h + 1) % 24;
       nextEnd = `${String(endH).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
     }
-    setPlanTasks([...planTasks, { name: "", start_time: nextStart, end_time: nextEnd, task_class: "Unspecified", sub_class: null }]);
+    setPlanTasks([...planTasks, { name: "", start_time: nextStart, end_time: nextEnd, task_class: "Academics_Selfstudy", sub_class: null }]);
   };
 
   const removeTimeBlock = (index: number) => {
@@ -576,7 +564,7 @@ export default function DashboardClient({ initialTasks, initialMetrics, backendU
                   cursor: "pointer",
                 }}
               >
-                Load Guidelines Template
+                Load example day
               </button>
               <button
                 onClick={addTimeBlock}
@@ -810,9 +798,9 @@ export default function DashboardClient({ initialTasks, initialMetrics, backendU
           style={{ cursor: "pointer", transition: "transform 0.15s" }}
           onMouseEnter={e => e.currentTarget.style.transform = "translateY(-2px)"}
           onMouseLeave={e => e.currentTarget.style.transform = "translateY(0)"}
-          title="Click to learn how PS Hours are computed!"
+          title="Click to learn how Study Hours are computed"
         >
-          <StatCard label="PS Hours (Click Info)" value={`${metrics?.ps_hrs?.toFixed(1) ?? 0}h`}
+          <StatCard label="Study Hours (Click Info)" value={`${metrics?.ps_hrs?.toFixed(1) ?? 0}h`}
             sub="Explain metric"
             icon={Zap} color="#34d399" />
         </div>
@@ -873,7 +861,7 @@ export default function DashboardClient({ initialTasks, initialMetrics, backendU
         }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
             <strong style={{ color: "#34d399", display: "flex", alignItems: "center", gap: "6px" }}>
-              <Zap size={15} /> Understanding Problem-Solving (PS) Hours
+              <Zap size={15} /> Understanding Study Hours
             </strong>
             <button 
               onClick={() => setShowPSInfo(false)}
@@ -883,21 +871,21 @@ export default function DashboardClient({ initialTasks, initialMetrics, backendU
             </button>
           </div>
           <p style={{ marginBottom: "8px", fontSize: "12.5px", opacity: 0.9 }}>
-            <strong>Problem-Solving (PS) Hours</strong> measures the time spent on dedicated, high-concentration cognitive work. It represents a commitment to deliberate practice and mastery.
+            <strong>Study Hours</strong> (called PS, problem-solving, hours in the code) count focused study time you actually finished.
           </p>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", fontSize: "12px", opacity: 0.85 }}>
             <div>
               <span style={{ color: "#5eead4" }}><strong>How it is calculated:</strong></span>
               <ul style={{ paddingLeft: "14px", marginTop: "4px" }}>
-                <li>Sum of scheduled durations (in hours) of all <strong>completed</strong> <em>Academics Selfstudy</em> blocks.</li>
-                <li>Duration is parsed directly from your timeblocks (e.g. <code>07:00–09:00 = 2.0h</code>).</li>
+                <li>Sum of the planned durations of <em>Study</em> blocks you marked <strong>Complete</strong>.</li>
+                <li>Duration comes from the time block (e.g. <code>07:00–09:00 = 2.0h</code>).</li>
               </ul>
             </div>
             <div>
               <span style={{ color: "#5eead4" }}><strong>Impact and Role:</strong></span>
               <ul style={{ paddingLeft: "14px", marginTop: "4px" }}>
-                <li><strong>Only counts</strong> when the overall task complete milestone is fully checked off.</li>
-                <li><strong>Directly influences Aura</strong>, ensuring study volume acts as a powerful momentum multiplier.</li>
+                <li>Feeds Aura&apos;s study factor (full at 2h a day).</li>
+                <li>If you don&apos;t plan Study blocks (e.g. you&apos;re not a student), it doesn&apos;t affect Aura.</li>
               </ul>
             </div>
           </div>
