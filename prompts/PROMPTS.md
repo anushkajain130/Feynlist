@@ -61,3 +61,9 @@ Status for all entries: **New improvement prompt**. Entries are verbatim and in 
 > tell me what you need to compelte 4,7-12
 
 **What it changed:** status question asked during the issue 4, 7–12 work. Issue 12 (the dead persona-path setting) was finished in the same turn. The answer: issues 4 and 7–12 are done; the only thing left is a live run of the issue 4 truncation fix, which needs the owner's Gemini key in a local, gitignored `.env`.
+
+### C5. 2026-11-21
+
+> push
+
+**What it changed:** pushed the issue 1–12 commits (and this prompt record) to `claude/dazzling-hopper-tk9c3k`. No code changed.
