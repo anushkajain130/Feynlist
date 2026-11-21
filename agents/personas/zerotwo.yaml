@@ -6,7 +6,7 @@ agent_id: zerotwo
 display_name: "ZeroTwo"
 model_tier: standard   # GEMINI_MODEL_STANDARD (see config/settings.py)
 temperature: 1.0
-max_output_tokens: 400
+max_output_tokens: 300
 
 tools:
   - get_current_tasks

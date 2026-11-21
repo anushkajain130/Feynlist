@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     gemini_model_standard: str = Field(default="gemini-2.5-flash", alias="GEMINI_MODEL_STANDARD")
     gemini_model_light: str = Field(default="gemini-2.5-flash-lite", alias="GEMINI_MODEL_LIGHT")
 
+    # Thinking budget for 2.5 Flash models (tokens). 0 = off (short replies don't need
+    # it and thinking tokens eat into max_output_tokens). -1 = leave the model default.
+    gemini_thinking_budget: int = Field(default=0, alias="GEMINI_THINKING_BUDGET")
+
     def model_for_tier(self, tier: str | None) -> str:
         """'light' -> GEMINI_MODEL_LIGHT, anything else -> GEMINI_MODEL_STANDARD."""
         return self.gemini_model_light if tier == "light" else self.gemini_model_standard

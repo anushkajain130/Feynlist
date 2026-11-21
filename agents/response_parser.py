@@ -52,7 +52,7 @@ class ResponseParser:
     Parses and cleans raw LLM responses from agent runtime.
     """
 
-    def parse(self, raw: str, agent_id: str = "") -> ParsedResponse:
+    def parse(self, raw: str, agent_id: str = "", truncated: bool = False) -> ParsedResponse:
         """
         Main entry point. Takes raw LLM output, returns ParsedResponse.
         """
@@ -84,9 +84,14 @@ class ResponseParser:
         if is_refusal:
             logger.warning(f"ResponseParser[{agent_id}]: Possible refusal detected.")
 
-        # 4. Enforce length limit
+        # 4. If the model hit its token limit, don't show a half sentence
+        if truncated:
+            cleaned = self._trim_to_sentence(cleaned)
+            logger.debug(f"ResponseParser[{agent_id}]: trimmed token-limited reply to last full sentence.")
+
+        # 5. Enforce length limit (cut at a sentence boundary where possible)
         if len(cleaned) > MAX_RESPONSE_CHARS:
-            cleaned = cleaned[:MAX_RESPONSE_CHARS].rsplit(" ", 1)[0] + "..."
+            cleaned = self._trim_to_sentence(cleaned[:MAX_RESPONSE_CHARS])
             logger.debug(f"ResponseParser[{agent_id}]: Response truncated to {MAX_RESPONSE_CHARS} chars.")
 
         return ParsedResponse(
@@ -95,6 +100,17 @@ class ResponseParser:
             is_refusal=is_refusal,
             token_estimate=len(cleaned) // 4,
         )
+
+    @staticmethod
+    def _trim_to_sentence(text: str) -> str:
+        """Cut back to the last complete sentence; if there is none, end with an ellipsis."""
+        text = text.rstrip()
+        if not text or text[-1] in ".!?…":
+            return text
+        ends = [m.end() for m in re.finditer(r"[.!?…](?=[\s\"')\]]|$)", text)]
+        if ends:
+            return text[:ends[-1]].rstrip()
+        return text.rsplit(" ", 1)[0].rstrip(",;:—- ") + "…"
 
     def _clean(self, text: str) -> str:
         """Remove markdown artifacts and normalize whitespace."""

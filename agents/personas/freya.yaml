@@ -6,7 +6,7 @@ agent_id: freya
 display_name: "Freya"
 model_tier: standard   # GEMINI_MODEL_STANDARD (see config/settings.py)
 temperature: 1.0
-max_output_tokens: 400
+max_output_tokens: 300
 
 # Tools this agent can access
 tools:

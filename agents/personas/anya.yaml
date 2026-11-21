@@ -6,7 +6,7 @@ agent_id: anya
 display_name: "Anya"
 model_tier: standard   # GEMINI_MODEL_STANDARD (see config/settings.py)
 temperature: 0.9
-max_output_tokens: 450
+max_output_tokens: 300
 
 tools:
   - get_current_tasks

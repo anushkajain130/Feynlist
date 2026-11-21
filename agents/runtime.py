@@ -137,7 +137,7 @@ class AgentRuntime:
         latency_ms = 0
         start_time = time.perf_counter()
         try:
-            raw_response, in_tokens, out_tokens, tot_tokens, model_used = await self._call_llm(context_text)
+            raw_response, in_tokens, out_tokens, tot_tokens, model_used, truncated = await self._call_llm(context_text)
             latency_ms += int((time.perf_counter() - start_time) * 1000)
             input_tokens = in_tokens
             output_tokens = out_tokens
@@ -149,7 +149,7 @@ class AgentRuntime:
             raise AgentUnavailableError(reason) from e
 
         # 4. Parse response
-        parsed = response_parser.parse(raw_response, self.agent_id.value)
+        parsed = response_parser.parse(raw_response, self.agent_id.value, truncated=truncated)
 
         # 5. Handle tool call if requested
         if parsed.has_tool_call and parsed.tool_name:
@@ -162,12 +162,12 @@ class AgentRuntime:
             )
             try:
                 followup_start = time.perf_counter()
-                raw_response, followup_in, followup_out, followup_tot, _ = await self._call_llm(tool_context_text)
+                raw_response, followup_in, followup_out, followup_tot, _, truncated = await self._call_llm(tool_context_text)
                 input_tokens += followup_in
                 output_tokens += followup_out
                 tokens_used += followup_tot
                 latency_ms += int((time.perf_counter() - followup_start) * 1000)
-                parsed = response_parser.parse(raw_response, self.agent_id.value)
+                parsed = response_parser.parse(raw_response, self.agent_id.value, truncated=truncated)
             except Exception as e:
                 logger.error(f"Tool follow-up LLM call failed: {e}")
 
@@ -244,12 +244,20 @@ class AgentRuntime:
     # LLM CALL
     # ------------------------------------------------------------------
 
-    async def _call_llm(self, context: str) -> tuple[str, int, int, int, str]:
-        """Make the async Gemini API call. Returns (text, input_tokens, output_tokens, total_tokens, model)."""
+    async def _call_llm(self, context: str) -> tuple[str, int, int, int, str, bool]:
+        """Make the async Gemini API call.
+        Returns (text, input_tokens, output_tokens, total_tokens, model, truncated)."""
         model = self.model_name
         system_prompt = self._config.get("system_prompt", "")
         temperature = float(self._config.get("temperature", 1.0))
-        max_tokens = int(self._config.get("max_output_tokens", 400))
+        max_tokens = int(self._config.get("max_output_tokens", 300))
+
+        # Gemini 2.5 Flash "thinks" by default and thinking tokens count against
+        # max_output_tokens, which can cut a short reply off mid-sentence. Short
+        # coaching replies don't need it, so the budget defaults to 0 (off).
+        thinking = None
+        if "2.5-flash" in model and settings.gemini_thinking_budget >= 0:
+            thinking = genai_types.ThinkingConfig(thinking_budget=settings.gemini_thinking_budget)
 
         response = await self._client.aio.models.generate_content(
             model=model,
@@ -258,8 +266,18 @@ class AgentRuntime:
                 system_instruction=system_prompt,
                 temperature=temperature,
                 max_output_tokens=max_tokens,
+                thinking_config=thinking,
             ),
         )
+
+        truncated = False
+        try:
+            reason = response.candidates[0].finish_reason if response.candidates else None
+            truncated = reason == genai_types.FinishReason.MAX_TOKENS
+        except Exception:
+            pass
+        if truncated:
+            logger.warning(f"AgentRuntime[{self.agent_id.value}]: reply hit max_output_tokens ({max_tokens}).")
 
         in_tokens = 0
         out_tokens = 0
@@ -269,7 +287,7 @@ class AgentRuntime:
             out_tokens = response.usage_metadata.candidates_token_count or 0
             tot_tokens = response.usage_metadata.total_token_count or 0
 
-        return response.text or "", in_tokens, out_tokens, tot_tokens, model
+        return response.text or "", in_tokens, out_tokens, tot_tokens, model, truncated
 
     # ------------------------------------------------------------------
     # TOOL EXECUTION
