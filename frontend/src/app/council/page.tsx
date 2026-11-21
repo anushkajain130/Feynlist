@@ -38,7 +38,7 @@ interface ChatMessage {
   } | null;
 }
 
-function AgentBubble({ msg }: { msg: ChatMessage }) {
+function AgentBubble({ msg, devMode }: { msg: ChatMessage; devMode: boolean }) {
   const agent = AGENTS[msg.agentId as AgentKey] ?? AGENTS.freya;
   const [showDebug, setShowDebug] = useState(false);
 
@@ -64,13 +64,14 @@ function AgentBubble({ msg }: { msg: ChatMessage }) {
           whiteSpace: "pre-wrap",
         }}>{msg.content}</div>
 
-        {/* Token Auditing Stats Bar */}
+        {/* Token usage per reply (always shown); breakdown + debug only in developer mode */}
         {msg.tokens_used !== undefined && msg.tokens_used > 0 && (
           <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "6px", flexWrap: "wrap" }}>
             <span style={{ fontSize: "10px", color: "var(--text-muted)", background: "rgba(255,255,255,0.03)", padding: "2px 6px", borderRadius: "4px", border: "1px solid rgba(255,255,255,0.02)" }}>
-              Total: <strong style={{ color: "var(--text)" }}>{msg.tokens_used}</strong> tokens · Input: {msg.input_tokens} · Output: {msg.output_tokens} · {msg.latency_ms}ms · {msg.model_used?.split("/").pop()}
+              <strong style={{ color: "var(--text)" }}>{msg.tokens_used}</strong> tokens
+              {devMode && <> · Input: {msg.input_tokens} · Output: {msg.output_tokens} · {msg.latency_ms}ms · {msg.model_used?.split("/").pop()}</>}
             </span>
-            <button 
+            {devMode && <button 
               onClick={() => setShowDebug(!showDebug)}
               style={{
                 background: "transparent", border: "none", color: "var(--accent-2)", cursor: "pointer",
@@ -78,12 +79,12 @@ function AgentBubble({ msg }: { msg: ChatMessage }) {
               }}
             >
               {showDebug ? "Hide Debug" : "Inspect Debug Panel"}
-            </button>
+            </button>}
           </div>
         )}
 
         {/* Developer Debug Panel */}
-        {showDebug && msg.debug && (
+        {devMode && showDebug && msg.debug && (
           <div className="glass fade-in" style={{
             marginTop: "8px", padding: "12px", fontSize: "11px", fontFamily: "monospace",
             background: "rgba(10, 10, 15, 0.95)", border: "1px solid rgba(124, 92, 252, 0.2)",
@@ -154,6 +155,7 @@ export default function CouncilPage() {
   const [selectedAgent, setSelectedAgent] = useState<AgentKey>("freya");
   const [tokensToday, setTokensToday] = useState(0);
   const [aiConfigured, setAiConfigured] = useState<boolean | null>(null);
+  const [devMode, setDevMode] = useState(false); // developer details hidden by default
   const wsRef = useRef<WebSocket | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -272,10 +274,16 @@ export default function CouncilPage() {
           <div style={{ fontSize: "12px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em" }}>The</div>
           <h1 style={{ fontSize: "28px", fontWeight: 700 }} className="gradient-text">Council</h1>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px",
-          color: !connected ? "#6b6b80" : aiConfigured === false ? "#fbbf24" : "#34d399" }}>
-          {connected ? <Wifi size={14} /> : <WifiOff size={14} />}
-          {!connected ? "Offline" : aiConfigured === false ? "Connected · AI replies unavailable" : "Connected"}
+        <div style={{ display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11px", color: "var(--text-muted)", cursor: "pointer" }}>
+            <input type="checkbox" checked={devMode} onChange={e => setDevMode(e.target.checked)} />
+            Developer details
+          </label>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px",
+            color: !connected ? "#6b6b80" : aiConfigured === false ? "#fbbf24" : "#34d399" }}>
+            {connected ? <Wifi size={14} /> : <WifiOff size={14} />}
+            {!connected ? "Offline" : aiConfigured === false ? "Connected · AI replies unavailable" : "Connected"}
+          </div>
         </div>
       </div>
 
@@ -310,7 +318,7 @@ export default function CouncilPage() {
           <div style={{ flex: 1, overflowY: "auto", padding: "20px", display: "flex", flexDirection: "column", gap: "16px" }}>
             {messages.map(msg => {
               if (msg.type === "user") return <UserBubble key={msg.id} msg={msg} />;
-              if (msg.type === "agent") return <AgentBubble key={msg.id} msg={msg} />;
+              if (msg.type === "agent") return <AgentBubble key={msg.id} msg={msg} devMode={devMode} />;
               return (
                 <div key={msg.id} style={{ textAlign: "center", fontSize: "11px", color: "var(--text-muted)", padding: "4px" }}>
                   {msg.content}
