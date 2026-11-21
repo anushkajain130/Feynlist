@@ -75,46 +75,86 @@ def make_metrics(
 # =============================================================================
 
 class TestAlertnessMetric:
+    """Alertness = points-weighted attention rating over tasks the user rated
+    (Be Attentive checked). Unrated, unfinished and future tasks don't lower it."""
 
-    def test_zero_with_no_completed_tasks(self):
-        """If no tasks are completed, alertness = 0."""
-        task = make_task(points=100)
-        task.completed = False
-        result = AlertnessMetric.compute_raw([task], now=time(8, 0))
-        assert result == 0.0
+    def test_zero_when_nothing_rated(self):
+        task = make_task(points=100, slider_val=100)
+        assert AlertnessMetric.compute_raw([task]) == 0.0
+        assert AlertnessMetric.compute([task], yesterday=make_metrics(alertness=80.0)) == 0.0
 
     def test_full_score_perfect_slider(self):
-        """If completed task has slider_val=100, alertness = 100."""
-        task = make_task(points=100, slider_val=100)
-        task.completed = True
-        result = AlertnessMetric.compute_raw([task], now=time(10, 0))
-        assert result == pytest.approx(100.0)
+        task = make_task(points=100, slider_val=100, be_attentive=True)
+        assert AlertnessMetric.compute_raw([task]) == pytest.approx(100.0)
 
     def test_partial_score(self):
-        """Partial slider = partial alertness."""
-        task = make_task(points=100, slider_val=50)
-        task.completed = True
-        result = AlertnessMetric.compute_raw([task], now=time(10, 0))
-        assert result == pytest.approx(50.0)
+        task = make_task(points=100, slider_val=50, be_attentive=True)
+        assert AlertnessMetric.compute_raw([task]) == pytest.approx(50.0)
 
-    def test_uncompleted_tasks_excluded_from_numerator(self):
-        """Uncompleted tasks are in the denominator but not in the numerator."""
-        task_completed = make_task(points=50, slider_val=100)
-        task_completed.completed = True
-        task_uncompleted = make_task(points=50, slider_val=100)
-        task_uncompleted.completed = False
-        result = AlertnessMetric.compute_raw([task_completed, task_uncompleted], now=time(12, 0))
-        # (1.0 * 50 + 0 * 50) / (50 + 50) = 50 / 100 = 50.0%
-        assert result == pytest.approx(50.0)
+    def test_points_weighted(self):
+        big = make_task(points=100, slider_val=80, be_attentive=True)
+        small = make_task(points=20, slider_val=20, be_attentive=True)
+        # (0.8*100 + 0.2*20) / 120 = 84/120 = 70%
+        assert AlertnessMetric.compute_raw([big, small]) == pytest.approx(70.0)
+
+    def test_early_day_not_deflated_by_future_tasks(self):
+        """Baseline bug B-18: at 09:30, one rated 08–09 task + two future tasks gave 33%."""
+        done = make_task(start="08:00", end="09:00", slider_val=100, be_attentive=True)
+        noon = make_task(start="12:00", end="13:00")
+        evening = make_task(start="18:00", end="19:00")
+        assert AlertnessMetric.compute_raw([done, noon, evening], now=time(9, 30)) == pytest.approx(100.0)
+
+    def test_unrated_tasks_ignored(self):
+        rated = make_task(points=50, slider_val=60, be_attentive=True)
+        unrated = make_task(points=50, slider_val=100)
+        assert AlertnessMetric.compute_raw([rated, unrated]) == pytest.approx(60.0)
 
     def test_ewm_with_yesterday(self):
         """EWM weighting: 0.85 * today + 0.15 * yesterday."""
-        task = make_task(points=100, slider_val=50)
-        task.completed = True
+        task = make_task(points=100, slider_val=50, be_attentive=True)
         yesterday = make_metrics(alertness=80.0)
         result = AlertnessMetric.compute([task], yesterday=yesterday, now=time(10, 0))
         # raw = 50.0, ewm = 0.85*50 + 0.15*80 = 42.5 + 12 = 54.5
         assert result == pytest.approx(54.5)
+
+
+class TestMidnightCrossingTasks:
+    """Blocks like Sleep 22:00–06:00 end on the next calendar day (baseline bug B-17)."""
+
+    def sleep(self, **kw):
+        return make_task(task="Sleep", start="22:00", end="06:00", task_class=TaskClass.SLEEP, **kw)
+
+    def test_crossing_flag(self):
+        assert self.sleep().ends_next_day
+        assert not make_task(start="08:00", end="09:00").ends_next_day
+
+    def test_not_past_during_the_day(self):
+        s = self.sleep()
+        assert not s.is_past_at(time(10, 0))
+        assert not s.is_past_at(time(23, 59))
+        assert not s.has_ended_by(time(10, 0))
+
+    def test_active_late_evening_not_morning_of_same_date(self):
+        s = self.sleep()
+        assert s.is_active_at(time(23, 0))
+        assert not s.is_active_at(time(12, 0))
+
+    def test_counts_once_day_is_over(self):
+        assert self.sleep().has_ended_by(time(10, 0), day_over=True)
+
+    def test_discipline_ignores_unstarted_sleep_block(self):
+        study = make_task(start="08:00", end="09:00", start_and_sit=True)
+        assert DisciplineMetric.compute_raw([study, self.sleep()], now=time(10, 0)) == pytest.approx(100.0)
+
+    def test_discipline_on_finished_day_counts_all_blocks(self):
+        study = make_task(start="08:00", end="09:00", start_and_sit=True)
+        sleep = self.sleep()
+        # 50 of (50 + 50) start-and-sit points
+        assert DisciplineMetric.compute_raw([study, sleep], now=time(10, 0), day_over=True) == pytest.approx(50.0)
+
+    def test_ps_hours_duration_wraps(self):
+        late = make_task(start="23:00", end="01:00", task_class=TaskClass.ACADEMICS_SELFSTUDY)
+        assert late.ps_var == pytest.approx(2.0)
 
 
 # =============================================================================
@@ -226,6 +266,13 @@ class TestAuraMetric:
         result = AuraMetric.compute(discipline=0.0, ps_hrs=3.0, retention_streak=10)
         assert result == 0.0
 
+    def test_no_study_planned_is_neutral(self):
+        """Non-students (no Study blocks) aren't penalised by the study factor."""
+        with_study_missed = AuraMetric.compute(discipline=100.0, ps_hrs=0.0, retention_streak=3)
+        no_study = AuraMetric.compute(discipline=100.0, ps_hrs=0.0, retention_streak=3, study_planned=False)
+        assert no_study == pytest.approx(math.log(4), rel=1e-3)
+        assert with_study_missed == pytest.approx(math.sqrt(0.2) * math.log(4), rel=1e-3)
+
     def test_formula_correctness(self):
         """Manual formula verification."""
         disc, ps, streak = 90.0, 2.0, 7
@@ -309,3 +356,28 @@ class TestPointsMetric:
         result = PointsMetric.compute_total(tasks)
         # 100 + 25 = 125
         assert result == 125
+
+
+# =============================================================================
+# BURNOUT HEURISTIC (Signal 4: high discipline, low alertness)
+# =============================================================================
+
+class TestBurnoutAlertnessSignal:
+
+    async def run(self, monkeypatch, records):
+        from analytics import trends
+        async def fake_latest(n=7):
+            return records
+        monkeypatch.setattr(trends.analytics_repo, "get_latest", fake_latest)
+        return await trends.trend_analyzer.detect_burnout_signal()
+
+    async def test_unrated_days_do_not_trigger(self, monkeypatch):
+        """Days with alertness 0.0 (nothing rated) are not 'low focus'."""
+        recs = [make_metrics(discipline=90.0, alertness=0.0) for _ in range(6)]
+        sig = await self.run(monkeypatch, recs)
+        assert not any("low focus" in f for f in sig.contributing_factors)
+
+    async def test_rated_low_focus_days_trigger(self, monkeypatch):
+        recs = [make_metrics(discipline=90.0, alertness=20.0) for _ in range(6)]
+        sig = await self.run(monkeypatch, recs)
+        assert any("low focus" in f for f in sig.contributing_factors)

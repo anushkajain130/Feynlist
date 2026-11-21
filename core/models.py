@@ -249,13 +249,32 @@ class Task(BaseModel):
     def is_revived(self) -> bool:
         return self.task_class == TaskClass.REVIVED
 
+    @property
+    def ends_next_day(self) -> bool:
+        """True for blocks that cross midnight, e.g. Sleep 22:00–06:00 (ends the next day)."""
+        return self.end_time_obj < self.start_time_obj
+
     def is_active_at(self, t: time) -> bool:
-        """Returns True if this task's time window contains time t."""
+        """True if time t (on this task's own date) falls inside the block."""
+        if self.ends_next_day:
+            return t >= self.start_time_obj
         return self.start_time_obj <= t <= self.end_time_obj
 
     def is_past_at(self, t: time) -> bool:
-        """Returns True if this task ended before time t."""
+        """True if the block ended before time t on its own date.
+        A block that crosses midnight never ends on its own date."""
+        if self.ends_next_day:
+            return False
         return self.end_time_obj < t
+
+    def has_ended_by(self, t: time, day_over: bool = False) -> bool:
+        """True if the block has finished by time t (inclusive). If the whole day is
+        over (a past date), every block counts as finished."""
+        if day_over:
+            return True
+        if self.ends_next_day:
+            return False
+        return self.end_time_obj <= t
 
 
 # =============================================================================

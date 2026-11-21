@@ -363,12 +363,15 @@ class TrendAnalyzer:
             if low_aura_streak >= 7:
                 factors.append("Aura below 1.0 for 7+ consecutive days")
 
-        # Signal 4: High discipline, low alertness (exhaustion pattern)
-        recent = records[-5:]
-        avg_disc = sum(r.discipline for r in recent) / len(recent)
-        avg_alert = sum(r.alertness for r in recent) / len(recent)
-        if avg_disc > 70 and avg_alert < 30:
-            factors.append("High effort but low focus — possible mental exhaustion")
+        # Signal 4: High discipline, low alertness (exhaustion pattern).
+        # Alertness 0.0 means "no attention ratings that day", so those days are
+        # skipped; at least 3 rated days are needed.
+        recent = [r for r in records[-5:] if r.alertness > 0]
+        if len(recent) >= 3:
+            avg_disc = sum(r.discipline for r in recent) / len(recent)
+            avg_alert = sum(r.alertness for r in recent) / len(recent)
+            if avg_disc > 70 and avg_alert < 30:
+                factors.append("High effort but low focus — possible mental exhaustion")
 
         # Determine severity
         if len(factors) == 0:

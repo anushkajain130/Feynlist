@@ -473,6 +473,7 @@ export default function DashboardClient({ initialTasks, initialMetrics }: Props)
 
   const completedCount = taskData?.completed ?? 0;
   const totalCount = taskData?.total ?? 0;
+  const ratedCount = taskData?.tasks.filter(t => t.be_attentive).length ?? 0;
   const pct = taskData?.completion_pct ?? 0;
 
   return (
@@ -779,7 +780,9 @@ export default function DashboardClient({ initialTasks, initialMetrics }: Props)
         <StatCard label="Discipline" value={`${metrics?.discipline?.toFixed(0) ?? 0}%`}
           sub={(metrics?.discipline ?? 0) > 70 ? "↑ On track" : "Needs work"}
           icon={Target} color="#7c5cfc" />
-        <StatCard label="Alertness" value={`${metrics?.alertness?.toFixed(0) ?? 0}%`}
+        <StatCard label="Alertness"
+          value={ratedCount > 0 ? `${metrics?.alertness?.toFixed(0) ?? 0}%` : "—"}
+          sub={ratedCount > 0 ? `Focus on ${ratedCount} rated task${ratedCount === 1 ? "" : "s"}` : "Rate a task's focus to start"}
           icon={Brain} color="#818cf8" />
         
         {/* Clickable Aura Card */}
@@ -790,8 +793,11 @@ export default function DashboardClient({ initialTasks, initialMetrics }: Props)
           onMouseLeave={e => e.currentTarget.style.transform = "translateY(0)"}
           title="Click to learn how Aura is computed!"
         >
-          <StatCard label="Aura (Click for Info)" value={(metrics?.aura ?? 0).toFixed(2)}
-            sub={`${metrics?.retention_streak ?? 0}d consistency streak · Info`}
+          <StatCard label="Aura (Click for Info)"
+            value={(metrics?.retention_streak ?? 0) > 0 ? (metrics?.aura ?? 0).toFixed(2) : "—"}
+            sub={(metrics?.retention_streak ?? 0) > 0
+              ? `${metrics?.retention_streak}d consistency streak · Info`
+              : "Starts after your first counted day · Info"}
             icon={Flame} color="#f472b6" />
         </div>
 
@@ -828,22 +834,27 @@ export default function DashboardClient({ initialTasks, initialMetrics }: Props)
             </button>
           </div>
           <p style={{ marginBottom: "8px", fontSize: "12.5px", opacity: 0.9 }}>
-            <strong>Aura</strong> represents your cognitive momentum and focus consistency. Unlike binary metrics, it measures how deeply and regularly you execute your scheduled deep-work guidelines.
+            <strong>Aura</strong> is a simple momentum score: it grows when you start what you planned,
+            keep your commitment day after day, and (if you plan Study blocks) finish your study time.
           </p>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", fontSize: "12px", opacity: 0.85 }}>
+          <p style={{ marginBottom: "10px", fontSize: "12px", fontFamily: "monospace", opacity: 0.9 }}>
+            Aura = √(Discipline ÷ 100) × √(Study factor) × ln(1 + consistency streak)
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "16px", fontSize: "12px", opacity: 0.85 }}>
             <div>
-              <span style={{ color: "#5eead4" }}><strong>Factors affecting Aura:</strong></span>
+              <span style={{ color: "#5eead4" }}><strong>The parts:</strong></span>
               <ul style={{ paddingLeft: "14px", marginTop: "4px" }}>
-                <li><strong>Discipline</strong> (Starting scheduled timeblocks on time)</li>
-                <li><strong>PS Hours</strong> (Problem Solving study block density)</li>
-                <li><strong>Consistency streak</strong> (Days you kept your commitment to your plan)</li>
+                <li><strong>Discipline</strong>: share of finished blocks you started.</li>
+                <li><strong>Study factor</strong>: 0.2 → 1.0 as completed Study hours reach 2h/day. It&apos;s 1.0 if you plan no Study blocks, so non-students aren&apos;t penalised.</li>
+                <li><strong>Consistency streak</strong>: days in a row you kept your commitment (check-in &quot;Yes&quot; or at least half of your plan done).</li>
               </ul>
             </div>
             <div>
-              <span style={{ color: "#5eead4" }}><strong>Score mechanics:</strong></span>
+              <span style={{ color: "#5eead4" }}><strong>What to expect:</strong></span>
               <ul style={{ paddingLeft: "14px", marginTop: "4px" }}>
-                <li><strong>Increases</strong> by maintaining high discipline, studying consistently, and protecting your streak.</li>
-                <li><strong>Resets</strong> when a day ends without keeping your commitment, or declines gradually if study volume drops.</li>
+                <li>Shows &quot;—&quot; until your first counted day (ln(1 + 0) = 0).</li>
+                <li>With a perfect day it&apos;s about 0.7 after 1 day, 1.4 after 3 and 2.1 after 7. It grows slowly, with no cap.</li>
+                <li>A &quot;Not today&quot; check-in or a day without keeping your plan resets the streak, so Aura restarts from zero.</li>
               </ul>
             </div>
           </div>

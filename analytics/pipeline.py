@@ -16,7 +16,7 @@ from typing import Optional
 
 from loguru import logger
 
-from core.models import DailyMetrics, Task
+from core.models import DailyMetrics, Task, TaskClass
 from data.repositories.task_repo import task_repo
 from data.repositories.analytics_repo import analytics_repo
 from analytics.metrics import (
@@ -73,7 +73,9 @@ class AnalyticsPipeline:
         now = datetime.now().time()
 
         alertness = AlertnessMetric.compute(tasks, yesterday, now)
-        discipline = DisciplineMetric.compute(tasks, yesterday, now)
+        discipline = DisciplineMetric.compute(
+            tasks, yesterday, now, day_over=target_date < date.today()
+        )
         ps_hrs = PSHoursMetric.compute(tasks)
         tasks_completed = sum(1 for t in tasks if t.completed)
         retention_streak = ConsistencyStreakMetric.compute(
@@ -83,7 +85,10 @@ class AnalyticsPipeline:
             tasks_total=len(tasks),
             day_in_progress=target_date >= date.today(),
         )
-        aura = AuraMetric.compute(discipline, ps_hrs, retention_streak)
+        study_planned = any(t.task_class == TaskClass.ACADEMICS_SELFSTUDY for t in tasks)
+        aura = AuraMetric.compute(
+            discipline, ps_hrs, retention_streak, study_planned=study_planned
+        )
         total_points = PointsMetric.compute_total(tasks)
 
         # 4. Assemble metrics object
