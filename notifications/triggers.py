@@ -179,6 +179,34 @@ async def emit_day_end() -> None:
     await emit_streak_event()
 
 
+async def emit_task_completed(task) -> None:
+    """Fired when a task becomes fully completed. Albedo celebrates."""
+    event = AppEvent(
+        event_type=EventType.TASK_COMPLETED,
+        source="tasks",
+        payload={
+            "task_id": task.id,
+            "task_name": task.task,
+            "start_time": task.start_time,
+            "end_time": task.end_time,
+            "message": f"Task completed: '{task.task}' ({task.start_time}–{task.end_time}).",
+        },
+    )
+    logger.info(f"Trigger: TASK_COMPLETED for '{task.task}'")
+    await event_bus.publish(event)
+
+
+def fire_and_forget(coro) -> None:
+    """Run an event emitter in the background so API responses aren't delayed by an LLM call."""
+    import asyncio
+    task = asyncio.create_task(coro)
+    _background.add(task)
+    task.add_done_callback(_background.discard)
+
+
+_background: set = set()
+
+
 async def emit_user_message(message: str, source: str = "user") -> None:
     """
     Emit a user direct message event.

@@ -19,13 +19,11 @@ tools:
   - retrieve_memory
   - get_time_context
 
-# When Freya should speak (handled by orchestrator)
+# Events that route to this coach (must match agents/orchestrator.EVENT_AGENT_MAP)
 triggers:
   - task_missed
   - day_start
-  - low_discipline_detected
   - user_direct_message
-  - scheduled_checkin
 
 # Cooldown between unprompted responses (seconds)
 cooldown_seconds: 1200

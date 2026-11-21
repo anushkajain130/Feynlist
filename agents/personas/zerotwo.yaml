@@ -20,12 +20,10 @@ tools:
   - retrieve_memory
   - get_time_context
 
+# Events that route to this coach (must match agents/orchestrator.EVENT_AGENT_MAP)
 triggers:
-  - task_missed
   - scheduled_checkin
-  - performance_drop
   - user_direct_message
-  - week_review
 
 cooldown_seconds: 1100
 

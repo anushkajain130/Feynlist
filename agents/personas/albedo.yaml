@@ -17,12 +17,11 @@ tools:
   - retrieve_memory
   - get_time_context
 
+# Events that route to this coach (must match agents/orchestrator.EVENT_AGENT_MAP)
 triggers:
   - task_completed
-  - high_score_achieved
-  - user_direct_message
-  - scheduled_checkin
   - streak_milestone
+  - user_direct_message
 
 cooldown_seconds: 1000
 

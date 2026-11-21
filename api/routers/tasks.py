@@ -25,7 +25,7 @@ from api.schemas import (
 from core.models import Task
 from data.repositories.task_repo import task_repo
 from core.exceptions import RecordNotFoundError, DatabaseError
-from notifications.triggers import emit_task_missed
+from notifications.triggers import emit_task_completed, fire_and_forget
 from analytics.pipeline import pipeline
 
 router = APIRouter(prefix="/api/tasks", tags=["Tasks"])
@@ -115,6 +115,7 @@ async def toggle_subtask(req: ToggleSubtaskRequest):
     Automatically recalculates today's analytics after the update.
     """
     try:
+        before = await task_repo.get_by_id(req.task_id)
         updated_task = await task_repo.toggle_subtask(
             task_id=req.task_id,
             subtask_name=req.subtask_name,
@@ -133,6 +134,9 @@ async def toggle_subtask(req: ToggleSubtaskRequest):
     except Exception as e:
         logger.warning(f"Analytics recalc failed after subtask toggle: {e}")
 
+    if updated_task.completed and not before.completed:
+        fire_and_forget(emit_task_completed(updated_task))
+
     return ToggleSubtaskResponse(
         success=True,
         task=_task_to_response(updated_task),
@@ -146,6 +150,7 @@ async def toggle_complete(req: ToggleCompleteRequest):
     Automatically sets slider_val and all subtasks.
     """
     try:
+        before = await task_repo.get_by_id(req.task_id)
         updated_task = await task_repo.toggle_complete(
             task_id=req.task_id,
             completed=req.completed,
@@ -162,6 +167,9 @@ async def toggle_complete(req: ToggleCompleteRequest):
         await pipeline.run(updated_task.date)
     except Exception as e:
         logger.warning(f"Analytics recalc failed after task toggle-complete: {e}")
+
+    if updated_task.completed and not before.completed:
+        fire_and_forget(emit_task_completed(updated_task))
 
     return ToggleCompleteResponse(
         success=True,

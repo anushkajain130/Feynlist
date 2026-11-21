@@ -28,22 +28,18 @@ from core.exceptions import AgentCooldownError, AgentRuntimeError, AgentUnavaila
 from agents.runtime import AgentRuntime
 
 
-# Maps event types → which agent should respond by default (SOLO mode)
+# Maps event types → which agent responds (SOLO mode). Only events that some
+# code path actually emits are listed (checked by tests/unit/test_triggers.py).
 EVENT_AGENT_MAP: dict[EventType, AgentId] = {
     EventType.TASK_MISSED:           AgentId.FREYA,
     EventType.DAY_START:             AgentId.FREYA,
     EventType.TASK_COMPLETED:        AgentId.ALBEDO,
-    EventType.HIGH_SCORE:            AgentId.ALBEDO,
     EventType.STREAK_MILESTONE:      AgentId.ALBEDO,
     EventType.BURNOUT_DETECTED:      AgentId.ANYA,
     EventType.STREAK_BROKEN:         AgentId.ANYA,
     EventType.DAY_END_REVIEW:        AgentId.ANYA,
     EventType.SCHEDULED_CHECKIN:     AgentId.ZEROTWO,
-    EventType.PERFORMANCE_DROP:      AgentId.ZEROTWO,
-    EventType.WEEK_REVIEW:           AgentId.ZEROTWO,
     EventType.USER_DIRECT_MESSAGE:   AgentId.FREYA,  # Default; overridden by @mention
-    EventType.INACTIVITY_DETECTED:   AgentId.MOHINI,
-    EventType.LOW_ENERGY_DETECTED:   AgentId.MOHINI,
 }
 
 # Council order for COUNCIL mode (who speaks first, second, etc.)

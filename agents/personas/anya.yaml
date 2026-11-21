@@ -18,13 +18,12 @@ tools:
   - retrieve_memory
   - get_time_context
 
+# Events that route to this coach (must match agents/orchestrator.EVENT_AGENT_MAP)
 triggers:
-  - burnout_signal_detected
+  - burnout_detected
   - streak_broken
-  - user_emotional_state
-  - user_direct_message
-  - scheduled_checkin
   - day_end_review
+  - user_direct_message
 
 cooldown_seconds: 1500
 
