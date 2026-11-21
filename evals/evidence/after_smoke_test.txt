@@ -1,0 +1,20 @@
+2026-11-21 21:35:34.668 +00:00 | WARNING  | agents.orchestrator:initialize:96 - Orchestrator: freya failed to init: no_api_key (set GEMINI_API_KEY on the server)
+2026-11-21 21:35:34.668 +00:00 | WARNING  | agents.orchestrator:initialize:96 - Orchestrator: albedo failed to init: no_api_key (set GEMINI_API_KEY on the server)
+2026-11-21 21:35:34.668 +00:00 | WARNING  | agents.orchestrator:initialize:96 - Orchestrator: anya failed to init: no_api_key (set GEMINI_API_KEY on the server)
+2026-11-21 21:35:34.668 +00:00 | WARNING  | agents.orchestrator:initialize:96 - Orchestrator: zerotwo failed to init: no_api_key (set GEMINI_API_KEY on the server)
+2026-11-21 21:35:34.669 +00:00 | WARNING  | agents.orchestrator:initialize:96 - Orchestrator: mohini failed to init: no_api_key (set GEMINI_API_KEY on the server)
+2026-11-21 21:35:34.669 +00:00 | ERROR    | agents.orchestrator:initialize:98 - Orchestrator: ALL agent runtimes failed to initialize.
+============================================================
+FEYNLIST SMOKE TEST (temporary database)
+============================================================
+  [PASS] database: saved and read back 12 tasks
+  [PASS] analytics: discipline=0.0% alertness=0.0% aura=0.00 streak=0d
+  [PASS] tools: 12 tools registered; get_task_summary ok
+  [PASS] events: 7 rules registered
+  [SKIP] live_llm: no GEMINI_API_KEY set; live call not attempted
+------------------------------------------------------------
+  4 passed, 0 failed, 1 skipped
+RESULT: PASSED WITH SKIPS: live_llm not tested
+============================================================
+exit=0
+require-llm exit=2

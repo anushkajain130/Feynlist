@@ -1,171 +1,177 @@
 """
-Smoke Test — End-to-End Live Integration
-==========================================
-Tests the full pipeline with a real Gemini API call.
+Smoke Test — end-to-end pipeline check
+======================================
+Runs against a throwaway SQLite database (never your real data) and checks:
 
-What this tests:
-  1. DB loads correctly (today's tasks)
-  2. Analytics pipeline runs
-  3. Context builder assembles a context packet
-  4. Freya makes a real LLM call and returns a response
-  5. Response is cleaned and returned correctly
-  6. Event bus wiring works (task_missed fires Freya)
+  1. Database initialises and a sample day can be saved and read back
+  2. Analytics pipeline computes metrics for that day
+  3. Tool registry executes a tool
+  4. Event bus + rules engine wiring
+  5. Live LLM call (Freya) — only if GEMINI_API_KEY is set; otherwise SKIPPED
+
+Every check reports PASS, FAIL or SKIP with a reason. The summary never says
+"all passed" when something was skipped or failed.
+
+Exit codes:
+  0  no failures (skips allowed, and listed)
+  1  at least one check failed
+  2  no failures, but a skip happened and --require-llm was given
 
 Run with:
-    python -m scripts.smoke_test
-
-Requires:
-    - GEMINI_API_KEY set in .env
-    - feynlist.db exists and has data
+    python -m scripts.smoke_test                # LLM step skipped without a key
+    python -m scripts.smoke_test --require-llm  # treat a skipped LLM call as not OK
 """
 
+from __future__ import annotations
+
 import asyncio
+import os
 import sys
+import tempfile
+from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
-# Add project root to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
 
-from loguru import logger
-from dotenv import load_dotenv
+# Use a throwaway database BEFORE any app module reads settings.
+_TMP = tempfile.TemporaryDirectory(prefix="feynlist-smoke-")
+os.environ["DATABASE_PATH"] = str(Path(_TMP.name) / "smoke.db")
 
-load_dotenv()
+PASS, FAIL, SKIP = "PASS", "FAIL", "SKIP"
 
 
-async def run_smoke_test():
-    logger.info("=" * 60)
-    logger.info("FEYNLIST V1 — SMOKE TEST")
-    logger.info("=" * 60)
+@dataclass
+class Result:
+    name: str
+    status: str
+    detail: str
 
-    results = {}
 
-    # ------------------------------------------------------------------
-    # 1. DATABASE
-    # ------------------------------------------------------------------
-    logger.info("\n[1/5] Database...")
+async def check_database() -> Result:
+    import json
+    from core.models import Task, TaskClass
     from data.database import db
-    await db.initialize()
     from data.repositories.task_repo import task_repo
-    tasks = await task_repo.get_tasks_for_date(date.today())
-    results["db_tasks_loaded"] = len(tasks)
-    logger.info(f"  ✅ Loaded {len(tasks)} tasks for today")
 
-    # ------------------------------------------------------------------
-    # 2. ANALYTICS PIPELINE
-    # ------------------------------------------------------------------
-    logger.info("\n[2/5] Analytics pipeline...")
+    await db.initialize()
+    template = json.loads((ROOT / "frontend" / "src" / "lib" / "dayTemplate.json").read_text())
+    tasks = [
+        Task(date=date.today(), task=t["name"], start_time=t["start_time"], end_time=t["end_time"],
+             task_class=TaskClass(t["task_class"]), points=50)
+        for t in template
+    ]
+    await task_repo.bulk_upsert(tasks)
+    loaded = await task_repo.get_tasks_for_date(date.today())
+    if len(loaded) != len(tasks):
+        return Result("database", FAIL, f"saved {len(tasks)} tasks, read back {len(loaded)}")
+    return Result("database", PASS, f"saved and read back {len(loaded)} tasks")
+
+
+async def check_analytics() -> Result:
     from analytics.pipeline import pipeline
-    metrics = await pipeline.run(date.today())
-    results["analytics_ok"] = metrics is not None
-    logger.info(f"  ✅ Metrics: discipline={metrics.discipline:.1f}% "
-                f"aura={metrics.aura:.2f} streak={metrics.retention_streak}d")
+    m = await pipeline.run(date.today())
+    if m is None or m.tasks_total == 0:
+        return Result("analytics", FAIL, "pipeline returned no metrics for a day with tasks")
+    return Result("analytics", PASS,
+                  f"discipline={m.discipline:.1f}% alertness={m.alertness:.1f}% "
+                  f"aura={m.aura:.2f} streak={m.retention_streak}d")
 
-    # ------------------------------------------------------------------
-    # 3. TOOL REGISTRY
-    # ------------------------------------------------------------------
-    logger.info("\n[3/5] Tool registry...")
-    from tools.registry import tool_registry
-    from tools.task_tools import GetCurrentTasksTool, GetTaskSummaryTool, GetMissedTasksTool, MarkSubtaskTool
-    from tools.analytics_tools import GetDailyMetricsTool, GetTrendSummaryTool, GetPercentileTool, GetBurnoutSignalTool
-    from tools.memory_tools import StoreMemoryTool, RetrieveMemoryTool, GetTopMemoriesTool
-    from tools.time_tools import GetTimeContextTool
 
-    tool_registry.register_many([
-        GetCurrentTasksTool(), GetTaskSummaryTool(),
-        GetMissedTasksTool(), GetDailyMetricsTool(),
-        GetTrendSummaryTool(), GetPercentileTool(),
-        GetBurnoutSignalTool(), StoreMemoryTool(),
-        RetrieveMemoryTool(), GetTopMemoriesTool(),
-        GetTimeContextTool(),
-    ])
-    tool_registry.register(MarkSubtaskTool(), allowed_agents=["freya", "zerotwo"])
-
+async def check_tools() -> Result:
+    from core.startup import _register_tools
     from tools.base_tool import ToolContext
-    ctx = ToolContext(agent_id="freya")
-    result = await tool_registry.execute("get_task_summary", {}, ctx)
-    results["tool_registry_ok"] = result.success
-    logger.info(f"  ✅ Tool 'get_task_summary' → success={result.success}")
-    if result.success:
-        logger.info(f"     {result.data.get('summary', '')[:100]}...")
+    from tools.registry import tool_registry
 
-    # ------------------------------------------------------------------
-    # 4. AGENT RUNTIME — REAL LLM CALL
-    # ------------------------------------------------------------------
-    logger.info("\n[4/5] Live LLM call (Freya)...")
-    from config.settings import settings as app_settings
+    _register_tools()
+    res = await tool_registry.execute("get_task_summary", {}, ToolContext(agent_id="freya"))
+    if not res.success:
+        return Result("tools", FAIL, f"get_task_summary failed: {res.error}")
+    return Result("tools", PASS, f"{len(tool_registry.list_all())} tools registered; get_task_summary ok")
+
+
+async def check_events() -> Result:
+    from agents.orchestrator import orchestrator
+    from core.startup import _wire_event_bus
+    from events.rules_engine import register_default_rules, rules_engine
+
+    await orchestrator.initialize()
+    _wire_event_bus()
+    register_default_rules(orchestrator)
+    n = len(rules_engine.list_rules())
+    if n == 0:
+        return Result("events", FAIL, "no rules registered")
+    return Result("events", PASS, f"{n} rules registered")
+
+
+async def check_llm() -> Result:
     from agents.runtime import AgentRuntime
+    from config.settings import settings
+    from core.exceptions import AgentRuntimeError
     from core.models import AgentId, EventType
 
-    if not app_settings.has_api_key:
-        logger.warning(
-            "  ⚠️  No API key found — skipping live LLM call.\n"
-            "     Add your key to d:\\feynlistV1\\.env:\n"
-            "       GEMINI_API_KEY=your_key_here\n"
-            "     or set GOOGLE_API_KEY as a system environment variable."
-        )
-        results["llm_call_ok"] = "SKIPPED (no API key)"
-        results["response_chars"] = 0
-    else:
-        freya = AgentRuntime(AgentId.FREYA)
+    if not settings.has_api_key:
+        return Result("live_llm", SKIP, "no GEMINI_API_KEY set; live call not attempted")
+    freya = AgentRuntime(AgentId.FREYA)
+    try:
         await freya.initialize()
-
-        message = await freya.invoke(
+        msg = await freya.invoke(
             user_message="Hey, how's my day looking so far?",
             triggered_by=EventType.USER_DIRECT_MESSAGE,
             bypass_cooldown=True,
         )
+    except AgentRuntimeError as e:
+        reason = getattr(e, "reason", "error")
+        return Result("live_llm", FAIL, f"live call failed ({reason})")
+    if not msg.content or msg.content == "...":
+        return Result("live_llm", FAIL, "model returned an empty reply")
+    return Result("live_llm", PASS, f"{freya.model_name} replied ({len(msg.content)} chars): {msg.content[:120]!r}")
 
-        results["llm_call_ok"] = bool(message.content)
-        results["response_chars"] = len(message.content)
-        logger.info(f"  ✅ Freya responded ({len(message.content)} chars):")
-        logger.info(f"     \"{message.content[:200]}\"")
 
-    # ------------------------------------------------------------------
-    # 5. EVENT BUS WIRING
-    # ------------------------------------------------------------------
-    logger.info("\n[5/5] Event bus + rules engine wiring...")
-    from events.event_bus import event_bus
-    from events.rules_engine import rules_engine, register_default_rules
-    from agents.orchestrator import orchestrator
+CHECKS = [check_database, check_analytics, check_tools, check_events, check_llm]
 
-    await orchestrator.initialize()
 
-    from core.startup import _wire_event_bus
-    _wire_event_bus()
-    register_default_rules(orchestrator)
+async def run_smoke_test(require_llm: bool = False) -> int:
+    from loguru import logger
+    logger.remove()
+    logger.add(sys.stderr, level="WARNING")
 
-    results["rules_registered"] = len(rules_engine.list_rules())
-    logger.info(f"  ✅ {results['rules_registered']} rules registered")
+    results: list[Result] = []
+    for check in CHECKS:
+        try:
+            results.append(await check())
+        except Exception as e:  # a crash is a failure, not a pass
+            results.append(Result(check.__name__.removeprefix("check_"), FAIL, f"exception: {e}"))
 
-    # ------------------------------------------------------------------
-    # SUMMARY
-    # ------------------------------------------------------------------
-    logger.info("\n" + "=" * 60)
-    logger.info("SMOKE TEST RESULTS")
-    logger.info("=" * 60)
-    all_ok = all([
-        results.get("db_tasks_loaded", 0) >= 0,
-        results.get("analytics_ok"),
-        results.get("tool_registry_ok"),
-        results.get("llm_call_ok") is not False,   # True or "SKIPPED" both pass
-        results.get("rules_registered", 0) > 0,
-    ])
+    icons = {PASS: "PASS", FAIL: "FAIL", SKIP: "SKIP"}
+    print("=" * 60)
+    print("FEYNLIST SMOKE TEST (temporary database)")
+    print("=" * 60)
+    for r in results:
+        print(f"  [{icons[r.status]}] {r.name}: {r.detail}")
 
-    for k, v in results.items():
-        icon = "✅" if v else "❌"
-        logger.info(f"  {icon} {k}: {v}")
+    passed = sum(r.status == PASS for r in results)
+    failed = [r for r in results if r.status == FAIL]
+    skipped = [r for r in results if r.status == SKIP]
+    print("-" * 60)
+    print(f"  {passed} passed, {len(failed)} failed, {len(skipped)} skipped")
 
-    logger.info("=" * 60)
-    if all_ok:
-        logger.info("🎉 ALL CHECKS PASSED — System is operational")
+    if failed:
+        print("RESULT: FAILED: " + ", ".join(r.name for r in failed))
+        code = 1
+    elif skipped and require_llm:
+        print("RESULT: INCOMPLETE: skipped with --require-llm: " + ", ".join(r.name for r in skipped))
+        code = 2
+    elif skipped:
+        print("RESULT: PASSED WITH SKIPS: " + ", ".join(r.name for r in skipped) + " not tested")
+        code = 0
     else:
-        logger.error("❌ SOME CHECKS FAILED — Review logs above")
-    logger.info("=" * 60)
-
-    return all_ok
+        print("RESULT: PASSED: every check ran and passed")
+        code = 0
+    print("=" * 60)
+    return code
 
 
 if __name__ == "__main__":
-    success = asyncio.run(run_smoke_test())
-    sys.exit(0 if success else 1)
+    sys.exit(asyncio.run(run_smoke_test(require_llm="--require-llm" in sys.argv)))

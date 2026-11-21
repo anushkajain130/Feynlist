@@ -4,7 +4,6 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Send, Wifi, WifiOff, Loader2 } from "lucide-react";
 import { WS_URL, api } from "@/lib/api";
 import { format } from "date-fns";
-import clsx from "clsx";
 
 // Agent personas
 const AGENTS = {
@@ -109,7 +108,7 @@ function AgentBubble({ msg, devMode }: { msg: ChatMessage; devMode: boolean }) {
                 <div style={{ display: "flex", flexDirection: "column", gap: "4px", maxHeight: "120px", overflowY: "auto", paddingRight: "4px" }}>
                   {msg.debug.retrieved_memories.map((m, i) => (
                     <div key={i} style={{ padding: "4px 8px", background: "rgba(255,255,255,0.02)", borderLeft: "2px solid var(--accent)", color: "var(--text-muted)", fontSize: "10.5px" }}>
-                      "{m}"
+                      &quot;{m}&quot;
                     </div>
                   ))}
                 </div>
@@ -188,7 +187,9 @@ export default function CouncilPage() {
 
   // WebSocket connection
   useEffect(() => {
-    fetchTokensToday();
+    api.agents.tokensToday()
+      .then(res => setTokensToday(res.total_tokens_today))
+      .catch(e => console.error("Failed to fetch today's token usage", e));
     const ws = new WebSocket(WS_URL);
     wsRef.current = ws;
 
@@ -387,7 +388,7 @@ export default function CouncilPage() {
                 <div style={{ fontSize: "20px", fontWeight: 700, color: "var(--accent)", marginTop: "2px" }}>{sessionTotalTokens.toLocaleString()} <span style={{ fontSize: "11px", fontWeight: 400, color: "var(--text-muted)" }}>t</span></div>
               </div>
               <div className="glass" style={{ padding: "10px 12px", background: "rgba(255,255,255,0.015)" }}>
-                <div style={{ fontSize: "9px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Today's Accumulated Total</div>
+                <div style={{ fontSize: "9px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Today&apos;s Accumulated Total</div>
                 <div style={{ fontSize: "20px", fontWeight: 700, color: "var(--accent-2)", marginTop: "2px" }}>{tokensToday.toLocaleString()} <span style={{ fontSize: "11px", fontWeight: 400, color: "var(--text-muted)" }}>t</span></div>
               </div>
             </div>

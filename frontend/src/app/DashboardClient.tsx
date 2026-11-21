@@ -4,7 +4,6 @@ import { useState, useCallback } from "react";
 import { format } from "date-fns";
 import { CheckCircle2, Circle, Clock, Zap, Brain, Target, Flame, Plus, Trash2, Calendar, Sparkles, Check, X, ChevronDown, ChevronUp } from "lucide-react";
 import { api, Task, TaskListResponse, DailyMetrics } from "@/lib/api";
-import clsx from "clsx";
 import BackendStatus from "@/components/BackendStatus";
 import dayTemplate from "@/lib/dayTemplate.json";
 
@@ -227,7 +226,7 @@ function TaskRow({
               Milestones & Subtasks
             </span>
             <div style={{ display: "flex", gap: "8px" }}>
-              {SUBTASKS.map(({ key, label, apiName }) => {
+              {SUBTASKS.map(({ key, label }) => {
                 const done = task[key as keyof Task] as boolean;
                 return (
                   <button
@@ -325,7 +324,7 @@ export default function DashboardClient({ initialTasks, initialMetrics, backendU
     } catch (e) {
       console.error("Toggle complete failed", e);
     }
-  }, [taskData]);
+  }, []);
 
   const handleAttentionChange = useCallback(async (task: Task, attention: number) => {
     // Optimistic UI update for smoothness
@@ -544,7 +543,7 @@ export default function DashboardClient({ initialTasks, initialMetrics, backendU
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", marginBottom: "20px" }}>
             <div>
               <h2 style={{ fontSize: "18px", fontWeight: 600, display: "flex", alignItems: "center", gap: "8px" }}>
-                <Sparkles size={16} style={{ color: "var(--accent)" }} /> Configure Today's Schedule
+                <Sparkles size={16} style={{ color: "var(--accent)" }} /> Configure Today&apos;s Schedule
               </h2>
               <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "4px" }}>
                 Define your timeblocks. Feynlist will track performance per timeblock.
@@ -894,7 +893,7 @@ export default function DashboardClient({ initialTasks, initialMetrics, backendU
       {/* Progress bar */}
       <div className="glass" style={{ padding: "16px 20px", marginBottom: "16px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "10px" }}>
-          <span style={{ fontSize: "13px", fontWeight: 500 }}>Today's Progress</span>
+          <span style={{ fontSize: "13px", fontWeight: 500 }}>Today&apos;s Progress</span>
           <span style={{ fontSize: "13px", color: "var(--accent)" }}>
             {completedCount}/{totalCount} tasks · {pct.toFixed(0)}%
           </span>

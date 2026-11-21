@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, BarChart3, MessageSquare, Info } from "lucide-react";
-import clsx from "clsx";
 
 const nav = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
