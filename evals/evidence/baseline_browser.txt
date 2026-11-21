@@ -1,0 +1,8 @@
+[desktop] / status=200 scrollWidth=1366 innerWidth=1366 -> baseline_desktop_home.png
+[desktop] /analytics status=200 scrollWidth=1366 innerWidth=1366 -> baseline_desktop_analytics.png
+[desktop] /council status=200 scrollWidth=1366 innerWidth=1366 -> baseline_desktop_council.png
+[desktop] /settings status=200 scrollWidth=1366 innerWidth=1366 -> baseline_desktop_settings.png
+[phone] / status=200 scrollWidth=390 innerWidth=390 -> baseline_phone_home.png
+[phone] /analytics status=200 scrollWidth=390 innerWidth=390 -> baseline_phone_analytics.png
+[phone] /council status=200 scrollWidth=390 innerWidth=390 -> baseline_phone_council.png
+[phone] /settings status=200 scrollWidth=390 innerWidth=390 -> baseline_phone_settings.png

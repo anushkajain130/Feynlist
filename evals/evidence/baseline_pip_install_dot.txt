@@ -1,0 +1,12 @@
+Processing ./.
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Getting requirements to build wheel: started
+  Getting requirements to build wheel: finished with status 'done'
+  error: backend-unavailable
+  
+  × Cannot import build backend 'setuptools.backends.legacy:build'.
+  ╰─> ModuleNotFoundError: No module named 'setuptools.backends'
+  
+  note: This is likely not a problem with pip.
+ERROR: Failed to build 'file://<repo>' when calling build backend hook get_requires_for_build_wheel
