@@ -40,7 +40,6 @@ All five also reply when you message them directly.
 *   **Inference:** Google Gemini 2.5 Pro and Flash models.
 *   **Validation:** Pydantic V2 for all internal data structures and API schemas.
 *   **Logging:** Structured logging via Loguru.
-*   **Migration:** Automated migration scripts for transitioning legacy CSV data into structured SQLite.
 
 ## Performance Metrics
 
@@ -69,13 +68,6 @@ Create a `.env` file in the project root. Refer to `.env.example` for the full l
 GEMINI_API_KEY=your_api_key_here
 DATABASE_PATH=feynlist.db
 LOG_LEVEL=INFO
-```
-
-### 3. Database Initialization
-Run the migration script to initialize the SQLite schema and import historical data:
-
-```bash
-python scripts/migrate_csv_to_sqlite.py
 ```
 
 ### 4. Running the API

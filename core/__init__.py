@@ -15,8 +15,6 @@ from core.models import (
     CallPriority,
     User,
     UserTier,
-    DeviatedSubClass,
-    RevivedSubClass,
 )
 from core.exceptions import (
     FeynlistError,
@@ -35,7 +33,7 @@ __all__ = [
     "Task", "Subtask", "TaskClass", "DailyMetrics", "HourlyPoint",
     "MemoryEntry", "MemoryType", "AppEvent", "EventType",
     "AgentMessage", "AgentId", "ContextPacket", "ToolResult",
-    "CallPriority", "User", "UserTier", "DeviatedSubClass", "RevivedSubClass",
+    "CallPriority", "User", "UserTier",
     "FeynlistError", "DatabaseError", "RecordNotFoundError",
     "AgentError", "LLMCallError", "ToolError", "ToolNotFoundError",
     "ToolPermissionError", "RateLimitExceeded",

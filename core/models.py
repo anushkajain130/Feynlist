@@ -38,43 +38,12 @@ class TaskClass(str, Enum):
     DEVIATED = "Deviated"
     SELF_GROWTH = "Self_Growth"
     WORK = "Work"
-    LEVEL_UP = "level_up"
-    LEVEL_DOWN = "level_down"
     REVIVED = "revived"
 
     @classmethod
     def _missing_(cls, value: object) -> "TaskClass":
         """Gracefully handle unknown class names from legacy data."""
         return cls.UNSPECIFIED
-
-
-class DeviatedSubClass(str, Enum):
-    """Specific sub-classifications for Deviated tasks."""
-
-    PHONE_URGE = "D_by_phone_urge"
-    ALARM_FAIL_MIDDAY = "D_by_alarm_fail_midday"
-    FAMILY_OBJ = "D_by_family_obj"
-    ALARM_FAIL_STARTDAY = "D_by_alarm_fail_startday"
-    RESISTANCE_TO_TASK = "D_by_resistance_to_task"
-    LACK_TIME_AWARENESS = "D_by_lack_time_awareness"
-    MEANINGLESS_INDISCIPLINE = "D_by_meaningless_indicipline"
-    UNPLANNED_SLEEP_EXHAUSTED = "D_by_unplanned_sleep_exhausted"
-    UNPLANNED_FL = "D_by_unplanned_FL"
-    TAMAS_OVERLOAD = "D_by_Tamas_overload"
-    EXTREME_UNEASE = "D_by_extreme_unease"
-    NO_ENERGY = "DE_by_no_energy"
-    SADNESS_OF_INACTIVITY = "DE_by_sadness_of_inactivity"
-    FEAR_OF_FAILURE = "DE_by_fear_of_failure"
-    FEAR_OF_FAILURE_CONFRONTATION = "DE_by_fear_of_failure_confrontation"
-
-
-class RevivedSubClass(str, Enum):
-    """Sub-classifications for Revived tasks."""
-
-    PHONE_LOCK = "R_Phone_lock"
-    EGO = "R_Ego"
-    SLEEPING_POSTURE = "R_Sleeping_posture"
-    BRAIN_CONDITIONING = "R_Brain_conditioning"
 
 
 class UserTier(str, Enum):
