@@ -229,7 +229,7 @@ export default function CouncilPage() {
 
     ws.onerror = () => {
       setConnected(false);
-      addMsg({ type: "status", content: "Backend not running. Start it with: uvicorn api.main:app --reload", timestamp: new Date() });
+      addMsg({ type: "status", content: "Can't reach the Feynlist server. If it was idle it may be waking up (up to a minute); refresh to reconnect.", timestamp: new Date() });
     };
 
     return () => ws.close();

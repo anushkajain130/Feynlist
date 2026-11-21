@@ -42,6 +42,10 @@ class Database:
         self._lock = asyncio.Lock()
         self._initialized = False
 
+    def is_initialized(self) -> bool:
+        """True once migrations have run (used by /health)."""
+        return self._initialized
+
     async def initialize(self) -> None:
         """
         Must be called once at application startup.

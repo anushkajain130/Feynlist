@@ -1,0 +1,4 @@
+down: banner = "Can't reach the Feynlist server. If it hasn't been used for a while, it may be waking up, which can take up to a minute. Retrying automatically… Nothing shown o"
+down: shows "No tasks scheduled"? false
+up: banner gone after 5s without manual reload
+up: shows "No tasks scheduled"? true

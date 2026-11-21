@@ -5,10 +5,12 @@ import { format } from "date-fns";
 import { CheckCircle2, Circle, Clock, Zap, Brain, Target, Flame, Plus, Trash2, Calendar, Sparkles, Check, X, ChevronDown, ChevronUp } from "lucide-react";
 import { api, Task, TaskListResponse, DailyMetrics } from "@/lib/api";
 import clsx from "clsx";
+import BackendStatus from "@/components/BackendStatus";
 
 interface Props {
   initialTasks: TaskListResponse | null;
   initialMetrics: DailyMetrics | null;
+  backendUnreachable?: boolean;
 }
 
 interface EditableTask {
@@ -262,7 +264,7 @@ function TaskRow({
   );
 }
 
-export default function DashboardClient({ initialTasks, initialMetrics }: Props) {
+export default function DashboardClient({ initialTasks, initialMetrics, backendUnreachable = false }: Props) {
   const [taskData, setTaskData] = useState(initialTasks);
   const [metrics, setMetrics] = useState(initialMetrics);
   const [isPlanning, setIsPlanning] = useState(false);
@@ -478,6 +480,7 @@ export default function DashboardClient({ initialTasks, initialMetrics }: Props)
 
   return (
     <div style={{ padding: "32px", maxWidth: "1100px", margin: "0 auto" }}>
+      <BackendStatus unreachable={backendUnreachable} />
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "32px" }}>
         <div>
@@ -925,11 +928,15 @@ export default function DashboardClient({ initialTasks, initialMetrics }: Props)
         {!taskData || taskData.tasks.length === 0 ? (
           <div style={{ textAlign: "center", padding: "60px", color: "var(--text-muted)" }}>
             <Clock size={32} style={{ marginBottom: "12px", opacity: 0.4 }} />
-            <div style={{ fontSize: "14px" }}>No tasks scheduled for today</div>
-            <div style={{ fontSize: "12px", marginTop: "4px", opacity: 0.6 }}>
-              Quickly lay out your time blocks using the planner
+            <div style={{ fontSize: "14px" }}>
+              {backendUnreachable ? "Your plan will appear here once the server responds" : "No tasks scheduled for today"}
             </div>
-            <button
+            {!backendUnreachable && (
+              <div style={{ fontSize: "12px", marginTop: "4px", opacity: 0.6 }}>
+                Quickly lay out your time blocks using the planner
+              </div>
+            )}
+            {!backendUnreachable && <button
               onClick={startPlanning}
               style={{
                 marginTop: "16px",
@@ -952,8 +959,8 @@ export default function DashboardClient({ initialTasks, initialMetrics }: Props)
                 e.currentTarget.style.color = "var(--accent)";
               }}
             >
-              Build Today's Schedule
-            </button>
+              Build Today&apos;s Schedule
+            </button>}
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>

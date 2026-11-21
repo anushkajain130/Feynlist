@@ -7,6 +7,7 @@ export default async function AnalyticsPage() {
   let history = null;
   let weekly = null;
   let burnout = null;
+  let unreachable = false;
 
   try {
     [history, weekly, burnout] = await Promise.all([
@@ -14,7 +15,9 @@ export default async function AnalyticsPage() {
       api.analytics.weekly(),
       api.analytics.burnout(),
     ]);
-  } catch {}
+  } catch {
+    unreachable = true;
+  }
 
-  return <AnalyticsClient history={history} weekly={weekly} burnout={burnout} />;
+  return <AnalyticsClient history={history} weekly={weekly} burnout={burnout} backendUnreachable={unreachable} />;
 }

@@ -6,6 +6,7 @@ export const revalidate = 0;
 export default async function DashboardPage() {
   let tasks = null;
   let metrics = null;
+  let unreachable = false;
 
   try {
     [tasks, metrics] = await Promise.all([
@@ -13,8 +14,17 @@ export default async function DashboardPage() {
       api.analytics.today(),
     ]);
   } catch {
-    // Backend may not be running; render with empty state
+    // Backend down or asleep: say so instead of showing an empty account.
+    unreachable = true;
   }
 
-  return <DashboardClient initialTasks={tasks} initialMetrics={metrics} />;
+  // `key` remounts the client when the backend comes back, so fresh data replaces the empty state.
+  return (
+    <DashboardClient
+      key={unreachable ? "unreachable" : "ok"}
+      initialTasks={tasks}
+      initialMetrics={metrics}
+      backendUnreachable={unreachable}
+    />
+  );
 }
