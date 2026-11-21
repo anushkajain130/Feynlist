@@ -106,18 +106,33 @@ class AgentRuntime:
         memory_query: Optional[str] = None,
         memory_tags: Optional[list[str]] = None,
         bypass_cooldown: bool = False,
+        event_payload: Optional[dict] = None,
+        force_sample: Optional[str] = None,
     ) -> AgentMessage:
         """
-        Full pipeline: context → LLM → parse → optional tool → memory.
-        Returns an AgentMessage.
+        Full pipeline: budget → context → LLM → parse → optional tool → memory.
+        Returns an AgentMessage. When a live reply isn't allowed (free-tier budget,
+        no key, council/automatic nudge in the demo) or the model fails, returns a
+        labelled pre-written sample reply instead (is_sample=True).
         """
         if not self._initialized:
-            await self.initialize()
+            try:
+                await self.initialize()
+            except AgentUnavailableError as e:
+                return await self._sample(triggered_by, e.reason, event_payload)
 
         # 1. Cooldown check
         if not bypass_cooldown and not self._check_cooldown():
             cooldown = self._config.get("cooldown_seconds", 1200)
             raise AgentCooldownError(self.agent_id.value, cooldown)
+
+        # 1b. Free-tier budget: live reply or labelled sample
+        if force_sample:
+            return await self._sample(triggered_by, force_sample, event_payload)
+        from agents.ai_budget import ai_budget
+        decision = ai_budget.reserve()
+        if not decision.live:
+            return await self._sample(triggered_by, decision.reason, event_payload)
 
         # 2. Build context packet
         try:
@@ -146,7 +161,8 @@ class AgentRuntime:
             reason = classify_llm_error(e)
             # Full provider error goes to the server log only, never to the user.
             logger.error(f"AgentRuntime[{self.agent_id.value}]: LLM call failed ({reason}): {e}")
-            raise AgentUnavailableError(reason) from e
+            ai_budget.refund_session()   # no live reply was produced
+            return await self._sample(triggered_by, reason, event_payload)
 
         # 4. Parse response
         parsed = response_parser.parse(raw_response, self.agent_id.value, truncated=truncated)
@@ -191,32 +207,7 @@ class AgentRuntime:
             }
         )
 
-        # Save to SQLite database for auditing and history
-        try:
-            from data.database import db
-            await db.execute_write(
-                """
-                INSERT INTO agent_messages (
-                    id, agent_id, content, triggered_by, call_priority, tokens_used, input_tokens, output_tokens, model_used, debug, latency_ms, timestamp
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-                """,
-                (
-                    message.id,
-                    message.agent_id.value,
-                    message.content,
-                    message.triggered_by.value if message.triggered_by else None,
-                    message.call_priority.value,
-                    message.tokens_used,
-                    message.input_tokens,
-                    message.output_tokens,
-                    message.model_used,
-                    json.dumps(message.debug),
-                    message.latency_ms,
-                )
-            )
-            logger.debug(f"AgentRuntime[{self.agent_id.value}]: Saved message to database.")
-        except Exception as e:
-            logger.warning(f"Failed to save agent message to database: {e}")
+        await self._persist(message)
 
         # 7. Save to session memory
         self._session.add(message)
@@ -288,6 +279,58 @@ class AgentRuntime:
             tot_tokens = response.usage_metadata.total_token_count or 0
 
         return response.text or "", in_tokens, out_tokens, tot_tokens, model, truncated
+
+    # ------------------------------------------------------------------
+    # SAMPLE MODE + PERSISTENCE
+    # ------------------------------------------------------------------
+
+    async def _sample(self, triggered_by: EventType, reason: str, payload: Optional[dict]) -> AgentMessage:
+        """A pre-written reply in this coach's style, filled only with facts the session has."""
+        from agents.sample_replies import gather_facts, pick
+        facts = await gather_facts(payload)
+        message = AgentMessage(
+            agent_id=self.agent_id,
+            content=pick(self.agent_id.value, triggered_by.value if triggered_by else "user_direct_message", facts),
+            triggered_by=triggered_by,
+            model_used="sample",
+            is_sample=True,
+            sample_reason=reason,
+        )
+        await self._persist(message)
+        self._last_invocation = time.time()   # samples respect cooldowns too
+        logger.info(f"AgentRuntime[{self.agent_id.value}]: sample reply ({reason}).")
+        return message
+
+    async def _persist(self, message: AgentMessage) -> None:
+        """Save to SQLite for history, nudges and token auditing."""
+        import json
+        try:
+            from data.database import db
+            await db.execute_write(
+                """
+                INSERT INTO agent_messages (
+                    id, agent_id, content, triggered_by, call_priority, tokens_used, input_tokens,
+                    output_tokens, model_used, debug, latency_ms, is_sample, sample_reason, timestamp
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                """,
+                (
+                    message.id,
+                    message.agent_id.value,
+                    message.content,
+                    message.triggered_by.value if message.triggered_by else None,
+                    message.call_priority.value,
+                    message.tokens_used,
+                    message.input_tokens,
+                    message.output_tokens,
+                    message.model_used,
+                    json.dumps(message.debug),
+                    message.latency_ms,
+                    int(message.is_sample),
+                    message.sample_reason,
+                ),
+            )
+        except Exception as e:
+            logger.warning(f"Failed to save agent message to database: {e}")
 
     # ------------------------------------------------------------------
     # TOOL EXECUTION

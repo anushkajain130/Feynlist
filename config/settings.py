@@ -100,6 +100,19 @@ class Settings(BaseSettings):
     demo_data_dir: Path = Field(default=Path("/tmp/feynlist-demo"), alias="DEMO_DATA_DIR")
     demo_max_sessions: int = Field(default=200, alias="DEMO_MAX_SESSIONS")
 
+    # -------------------------------------------------------------------------
+    # Free-tier AI budget (see agents/ai_budget.py)
+    # -------------------------------------------------------------------------
+    live_replies_per_session: int = Field(default=2, alias="LIVE_REPLIES_PER_SESSION")
+    # Live model requests per day across all users (Pacific day). Set it below your
+    # AI Studio daily request limit, leaving headroom for your own evals. 0 = no cap.
+    live_ai_daily_cap: int = Field(default=20, alias="LIVE_AI_DAILY_CAP")
+    live_ai_per_minute: int = Field(default=8, alias="LIVE_AI_PER_MINUTE")
+    ai_budget_path: Path = Field(default=Path("/tmp/feynlist-demo/ai_budget.db"), alias="AI_BUDGET_PATH")
+    # Scheduled jobs and automatic nudges call the model only when this is true
+    # (local/real use). Keep false for the public demo.
+    enable_proactive_llm: bool = Field(default=False, alias="ENABLE_PROACTIVE_LLM")
+
     # Frontend origins allowed to call the API (comma-separated). "*" = any (local dev).
     allowed_origins: str = Field(default="*", alias="ALLOWED_ORIGINS")
 

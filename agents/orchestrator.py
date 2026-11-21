@@ -169,12 +169,21 @@ class Orchestrator:
         user_message = event.payload.get("message", "") if event.payload else ""
 
         from core.session import bypass_cooldowns
+        demo_control = bypass_cooldowns.get()
+        # Unprompted nudges call the model only with ENABLE_PROACTIVE_LLM=true, or
+        # when an evaluator explicitly fires a demo control (counted in their budget).
+        force_sample = None
+        if (event.event_type != EventType.USER_DIRECT_MESSAGE
+                and not demo_control and not settings.enable_proactive_llm):
+            force_sample = "proactive_off"
         try:
             message = await runtime.invoke(
                 user_message=user_message,
                 triggered_by=event.event_type,
                 memory_query=user_message,
-                bypass_cooldown=bypass_cooldowns.get(),
+                bypass_cooldown=demo_control,
+                event_payload=event.payload,
+                force_sample=force_sample,
             )
             self._set_global_cooldown()
             return [message]
@@ -210,24 +219,14 @@ class Orchestrator:
         for agent_id in COUNCIL_ORDER:
             runtime = self._runtimes[agent_id]
 
-            # Skip agents that failed to initialise (e.g. no API key)
-            if not runtime._initialized:
-                try:
-                    await runtime.initialize()
-                except AgentUnavailableError as e:
-                    last_unavailable = e
-                    continue
-
-            # Skip agents on individual cooldown (unless it's a direct message)
-            if not runtime.is_ready():
-                logger.debug(f"Orchestrator council: skipping {agent_id.value} (not ready)")
-                continue
 
             try:
                 message = await runtime.invoke(
                     user_message=user_message,
                     triggered_by=event.event_type,
                     bypass_cooldown=True,  # Council mode bypasses individual cooldowns
+                    # All-five would spend five requests at once: samples in the public demo.
+                    force_sample="council_demo" if settings.demo_mode else None,
                 )
                 responses.append(message)
 
@@ -264,10 +263,12 @@ class Orchestrator:
             await self.initialize()
 
         runtime = self._runtimes[agent_id]
+        # Cooldowns limit unprompted messages; a person talking to a coach is never
+        # told to wait (the free-tier budget still applies).
         return await runtime.invoke(
             user_message=message,
             triggered_by=EventType.USER_DIRECT_MESSAGE,
-            bypass_cooldown=bypass_cooldown,
+            bypass_cooldown=True,
         )
 
     def get_runtime(self, agent_id: AgentId) -> AgentRuntime:

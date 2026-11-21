@@ -8,7 +8,8 @@ import pytest
 from agents.orchestrator import orchestrator
 from agents.runtime import AgentRuntime
 from config.settings import settings
-from core.exceptions import AI_UNAVAILABLE_MESSAGES, classify_llm_error
+from agents.ai_budget import SAMPLE_REASONS
+from core.exceptions import classify_llm_error
 
 SECRET = "RESOURCE_EXHAUSTED quota project 1234 generativelanguage.googleapis.com"
 
@@ -60,40 +61,49 @@ def test_classify_llm_error(code, text, reason):
     assert classify_llm_error(FakeProviderError(code, text)) == reason
 
 
-async def test_no_key_direct_message_is_friendly(client):
+async def test_no_key_direct_message_gets_labelled_sample(client):
     r = await client.post("/api/agents/message", json={"message": "hi", "agent_id": "freya"})
-    assert r.status_code == 503
-    assert r.json()["detail"] == AI_UNAVAILABLE_MESSAGES["no_api_key"]
+    assert r.status_code == 200
+    m = r.json()["messages"][0]
+    assert m["is_sample"] is True
+    assert m["sample_label"] == "Sample reply (pre-written, not live)"
+    assert m["sample_reason"] == SAMPLE_REASONS["no_api_key"]
     assert "GEMINI_API_KEY" not in r.text and ".env" not in r.text
 
 
-async def test_no_key_routed_message_is_friendly(client):
+async def test_no_key_routed_message_gets_sample(client):
     r = await client.post("/api/agents/message", json={"message": "hi"})
-    assert r.status_code == 503
-    assert r.json()["detail"] == AI_UNAVAILABLE_MESSAGES["no_api_key"]
+    assert r.status_code == 200
+    assert r.json()["messages"][0]["is_sample"] is True
 
 
-async def test_quota_error_hidden(client, monkeypatch):
+async def test_quota_error_becomes_sample_without_raw_text(client, monkeypatch, tmp_path):
+    monkeypatch.setattr(settings, "gemini_api_key", "test-key-not-real")
+    monkeypatch.setattr(settings, "ai_budget_path", tmp_path / "budget.db")
     stub_llm(monkeypatch, FakeProviderError(429, SECRET))
     r = await client.post("/api/agents/message", json={"message": "hi", "agent_id": "anya"})
-    assert r.status_code == 503
-    assert r.json()["detail"] == AI_UNAVAILABLE_MESSAGES["quota"]
+    assert r.status_code == 200
+    m = r.json()["messages"][0]
+    assert m["is_sample"] is True and m["sample_reason"] == SAMPLE_REASONS["quota"]
     assert "RESOURCE_EXHAUSTED" not in r.text and "googleapis" not in r.text
 
 
-async def test_quota_error_hidden_over_websocket(monkeypatch):
+async def test_quota_error_over_websocket_is_sample(monkeypatch, tmp_path):
     from fastapi.testclient import TestClient
     from api.main import app
 
+    monkeypatch.setattr(settings, "gemini_api_key", "test-key-not-real")
+    monkeypatch.setattr(settings, "ai_budget_path", tmp_path / "budget.db")
     stub_llm(monkeypatch, FakeProviderError(429, SECRET))
-    # TestClient without `with` skips the app lifespan (no scheduler, no real startup).
     client = TestClient(app)
     with client.websocket_connect("/api/agents/ws") as ws:
         assert ws.receive_json()["type"] == "status"          # connected
         ws.send_json({"message": "hi", "agent_id": "freya"})
         assert ws.receive_json()["type"] == "status"          # thinking
         msg = ws.receive_json()
-    assert msg == {"type": "error", "message": AI_UNAVAILABLE_MESSAGES["quota"]}
+    assert msg["type"] == "agent_message" and msg["is_sample"] is True
+    assert msg["sample_reason"] == SAMPLE_REASONS["quota"]
+    assert "RESOURCE_EXHAUSTED" not in str(msg)
 
 
 async def test_status_reports_ai_not_configured(client):

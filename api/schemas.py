@@ -167,6 +167,9 @@ class AgentMessageResponse(BaseModel):
     model_used: str = ""
     latency_ms: int = 0
     debug: Optional[dict] = None
+    is_sample: bool = False
+    sample_label: Optional[str] = None    # "Sample reply (pre-written, not live)"
+    sample_reason: Optional[str] = None   # short, friendly explanation
 
 
 class CouncilResponse(BaseModel):

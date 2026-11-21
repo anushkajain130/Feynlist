@@ -28,6 +28,21 @@ from core.models import AgentId, AppEvent, EventType
 from core.exceptions import AgentCooldownError, AgentRuntimeError, AgentUnavailableError
 
 
+SAMPLE_LABEL = "Sample reply (pre-written, not live)"
+
+
+def sample_fields(msg) -> dict:
+    """Label + friendly reason for sample replies (never presented as live)."""
+    from agents.ai_budget import SAMPLE_REASONS
+    if not getattr(msg, "is_sample", False):
+        return {"is_sample": False, "sample_label": None, "sample_reason": None}
+    return {
+        "is_sample": True,
+        "sample_label": SAMPLE_LABEL,
+        "sample_reason": SAMPLE_REASONS.get(msg.sample_reason or "", SAMPLE_REASONS["provider_error"]),
+    }
+
+
 def _cooldown_message(agent_id: str, seconds: int) -> str:
     minutes = max(1, round(seconds / 60))
     return f"{agent_id.capitalize()} is taking a short break. Try again in about {minutes} min."
@@ -69,6 +84,7 @@ def _agent_msg_to_response(msg) -> AgentMessageResponse:
         model_used=getattr(msg, "model_used", ""),
         latency_ms=getattr(msg, "latency_ms", 0),
         debug=debug_val,
+        **sample_fields(msg),
     )
 
 
@@ -196,6 +212,7 @@ def ws_payload(msg, proactive: bool = False) -> dict:
         "model_used": getattr(msg, "model_used", ""),
         "latency_ms": getattr(msg, "latency_ms", 0),
         "debug": debug_val,
+        **sample_fields(msg),
     }
 
 
@@ -359,7 +376,7 @@ async def get_nudges(limit: int = 10):
     limit = max(1, min(limit, 50))
     rows = await db.fetch_all(
         """
-        SELECT id, agent_id, content, triggered_by, model_used, timestamp
+        SELECT id, agent_id, content, triggered_by, model_used, timestamp, is_sample, sample_reason
         FROM agent_messages
         WHERE triggered_by IS NOT NULL AND triggered_by != 'user_direct_message'
         ORDER BY timestamp DESC, rowid DESC
@@ -367,7 +384,27 @@ async def get_nudges(limit: int = 10):
         """,
         (limit,),
     )
-    return {"nudges": [dict(r) for r in rows]}
+    from agents.ai_budget import SAMPLE_REASONS
+    nudges = []
+    for r in rows:
+        n = dict(r)
+        n["is_sample"] = bool(n.get("is_sample"))
+        n["sample_label"] = SAMPLE_LABEL if n["is_sample"] else None
+        n["sample_reason"] = SAMPLE_REASONS.get(n.get("sample_reason") or "") if n["is_sample"] else None
+        nudges.append(n)
+    return {"nudges": nudges}
+
+
+@router.get("/budget")
+async def get_budget():
+    """Live replies left for this session, and whether replies are live or samples."""
+    from agents.ai_budget import ai_budget
+    status = ai_budget.status()
+    status["notice"] = (
+        "Live replies use a free Google API; don't enter personal information. "
+        "This demo uses sample data."
+    )
+    return status
 
 
 @router.get("/tokens/today")

@@ -377,6 +377,9 @@ class AgentMessage(BaseModel):
     latency_ms: int = 0
     tool_used: Optional[str] = None   # Tool name if agent used a tool
     debug: Optional[dict] = None
+    # Sample mode: a pre-written reply shown instead of a live one (always labelled in the UI)
+    is_sample: bool = False
+    sample_reason: Optional[str] = None   # key of agents.ai_budget.SAMPLE_REASONS
 
     @model_validator(mode="after")
     def generate_id(self) -> "AgentMessage":

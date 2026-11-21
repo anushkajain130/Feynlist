@@ -86,18 +86,17 @@ class FeynlistScheduler:
         self._running = False
 
     def setup_jobs(self) -> None:
-        """Register all scheduled jobs. Call before start()."""
+        """
+        Register scheduled jobs. Call before start().
 
-        # Every 20 minutes: check for missed tasks
-        self._scheduler.add_job(
-            _run_task_missed_check,
-            trigger=IntervalTrigger(minutes=20),
-            id="task_missed_check",
-            name="Task Missed Checker",
-            replace_existing=True,
-        )
+        The analytics job (no LLM) always runs. Jobs that make coaches speak on a
+        timer call the model, so they are registered only with
+        ENABLE_PROACTIVE_LLM=true and outside the public demo: with nobody
+        present they would burn the free daily quota.
+        """
+        tz = settings.app_timezone or None
 
-        # Every 20 minutes: recompute today's analytics
+        # Every 20 minutes: recompute today's analytics (no LLM)
         self._scheduler.add_job(
             _run_analytics_pipeline,
             trigger=IntervalTrigger(minutes=20),
@@ -106,32 +105,21 @@ class FeynlistScheduler:
             replace_existing=True,
         )
 
-        # Every 2 hours: ZeroTwo scheduled checkin
-        self._scheduler.add_job(
-            _run_scheduled_checkin,
-            trigger=IntervalTrigger(hours=2),
-            id="scheduled_checkin",
-            name="ZeroTwo Checkin",
-            replace_existing=True,
-        )
-
-        # 06:00 daily (APP_TIMEZONE): Day start
-        self._scheduler.add_job(
-            _run_day_start,
-            trigger=CronTrigger(hour=6, minute=0, timezone=settings.app_timezone or None),
-            id="day_start",
-            name="Day Start",
-            replace_existing=True,
-        )
-
-        # 23:00 daily (APP_TIMEZONE): Day end review + burnout check
-        self._scheduler.add_job(
-            _run_day_end,
-            trigger=CronTrigger(hour=23, minute=0, timezone=settings.app_timezone or None),
-            id="day_end",
-            name="Day End Review",
-            replace_existing=True,
-        )
+        if settings.enable_proactive_llm and not settings.demo_mode:
+            # Every 20 minutes: check for missed tasks (Freya)
+            self._scheduler.add_job(_run_task_missed_check, trigger=IntervalTrigger(minutes=20),
+                                    id="task_missed_check", name="Task Missed Checker", replace_existing=True)
+            # Every 2 hours: ZeroTwo scheduled check-in
+            self._scheduler.add_job(_run_scheduled_checkin, trigger=IntervalTrigger(hours=2),
+                                    id="scheduled_checkin", name="ZeroTwo Checkin", replace_existing=True)
+            # 06:00 daily: day start (Freya)
+            self._scheduler.add_job(_run_day_start, trigger=CronTrigger(hour=6, minute=0, timezone=tz),
+                                    id="day_start", name="Day Start", replace_existing=True)
+            # 23:00 daily: end-of-day review (Anya) + workload and streak checks
+            self._scheduler.add_job(_run_day_end, trigger=CronTrigger(hour=23, minute=0, timezone=tz),
+                                    id="day_end", name="Day End Review", replace_existing=True)
+        else:
+            logger.info("Scheduler: proactive LLM jobs off (ENABLE_PROACTIVE_LLM=false or demo mode).")
 
         logger.info(f"Scheduler: {len(self._scheduler.get_jobs())} jobs registered.")
 
@@ -161,7 +149,7 @@ class FeynlistScheduler:
             {
                 "id": job.id,
                 "name": job.name,
-                "next_run": str(job.next_run_time) if job.next_run_time else "N/A",
+                "next_run": str(getattr(job, "next_run_time", None) or "N/A"),
             }
             for job in self._scheduler.get_jobs()
         ]
