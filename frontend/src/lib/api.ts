@@ -60,7 +60,8 @@ export interface DailyMetrics {
   tasks_total: number;
   completion_rate: number;
   has_data: boolean;
-  relapsed: boolean;
+  /** Daily check-in: null = not answered, true = kept commitment, false = "not today" */
+  kept_commitment: boolean | null;
 }
 
 export interface TrendResponse {
@@ -144,8 +145,8 @@ export const api = {
       get<TrendResponse>(`/api/analytics/trends/${metric}?days=${days}`),
     weekly: () => get<WeeklySummary>("/api/analytics/summary/week"),
     burnout: () => get<BurnoutSignal>("/api/analytics/burnout"),
-    checkIn: (relapsed: boolean, date?: string) =>
-      post<DailyMetrics>("/api/analytics/check-in", { relapsed, date }),
+    checkIn: (keptCommitment: boolean, date?: string) =>
+      post<DailyMetrics>("/api/analytics/check-in", { kept_commitment: keptCommitment, date }),
   },
   agents: {
     sendMessage: (message: string, agentId?: string) =>

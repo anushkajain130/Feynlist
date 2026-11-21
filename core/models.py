@@ -274,12 +274,13 @@ class DailyMetrics(BaseModel):
     discipline: float = 0.0         # 0–100: % of Start_and_Sit completed
     ps_hrs: float = 0.0             # Problem-solving hours (Academics tasks)
     aura: float = 0.0               # Composite: discipline × ps × streak
-    retention_streak: int = 0       # Consecutive "clean" days
+    retention_streak: int = 0       # Consistency streak: consecutive days the plan was kept
     happiness: float = 0.0          # User-reported (future feature)
     total_points: int = 0           # Raw points scored
     tasks_completed: int = 0
     tasks_total: int = 0
-    relapsed: bool = False
+    # Daily check-in: None = not answered, True = kept commitment, False = "not today"
+    commitment_kept: Optional[bool] = None
     computed_at: datetime = Field(default_factory=datetime.now)
 
     @property

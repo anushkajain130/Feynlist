@@ -17,6 +17,7 @@ from datetime import date, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
+from loguru import logger
 
 from api.schemas import (
     DailyMetricsResponse, TrendResponse,
@@ -43,7 +44,7 @@ def _metrics_response(m, has_data: bool = True) -> DailyMetricsResponse:
         tasks_total=m.tasks_total,
         completion_rate=round(m.completion_rate, 1),
         has_data=has_data,
-        relapsed=m.relapsed,
+        kept_commitment=m.commitment_kept,
     )
 
 
@@ -159,7 +160,7 @@ async def get_percentile(target_date: str):
 @router.post("/check-in", response_model=DailyMetricsResponse)
 async def check_in(req: CheckInRequest):
     """
-    Log private daily check-in relapse status.
+    Record the daily consistency check-in ("I kept my commitment today" / "Not today").
     Recalculates the streak and metrics immediately.
     """
     from datetime import date
@@ -182,11 +183,12 @@ async def check_in(req: CheckInRequest):
                 tasks_total=len(tasks),
             )
             
-        metrics.relapsed = req.relapsed
+        metrics.commitment_kept = req.kept_commitment
         await analytics_repo.upsert_metrics(metrics)
         
         # Trigger full pipeline recalculation to update streak & aura correctly
         updated_metrics = await pipeline.run(target_date)
         return _metrics_response(updated_metrics)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Check-in failed: {e}")
+        logger.error(f"Check-in failed: {e}")
+        raise HTTPException(status_code=500, detail="Check-in could not be saved. Please try again.")

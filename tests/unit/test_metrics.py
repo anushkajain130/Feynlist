@@ -16,7 +16,7 @@ from analytics.metrics import (
     DisciplineMetric,
     PSHoursMetric,
     AuraMetric,
-    RetentionStreakMetric,
+    ConsistencyStreakMetric,
     PointsMetric,
 )
 from core.models import Task, TaskClass, DailyMetrics
@@ -236,18 +236,41 @@ class TestAuraMetric:
 
 
 # =============================================================================
-# RETENTION STREAK TESTS
+# CONSISTENCY STREAK TESTS (neutral check-in)
 # =============================================================================
 
-class TestRetentionStreakMetric:
+class TestConsistencyStreakMetric:
 
-    def test_clean_day_increments_streak(self):
-        result = RetentionStreakMetric.compute(relapsed=False, yesterday_streak=5)
-        assert result == 6
+    def compute(self, **kw):
+        args = dict(yesterday_streak=5, commitment_kept=None, tasks_completed=0,
+                    tasks_total=4, day_in_progress=False, min_completion=0.5)
+        args.update(kw)
+        return ConsistencyStreakMetric.compute(**args)
 
-    def test_break_event_resets_streak(self):
-        result = RetentionStreakMetric.compute(relapsed=True, yesterday_streak=10)
-        assert result == 0
+    def test_kept_commitment_increments(self):
+        assert self.compute(commitment_kept=True) == 6
+
+    def test_not_today_resets(self):
+        assert self.compute(commitment_kept=False, tasks_completed=4) == 0
+
+    def test_completion_threshold_counts_without_checkin(self):
+        assert self.compute(tasks_completed=2) == 6   # 50% meets threshold
+
+    def test_below_threshold_finished_day_resets(self):
+        assert self.compute(tasks_completed=1) == 0
+
+    def test_below_threshold_in_progress_day_holds(self):
+        """Today isn't over yet: the streak is not broken, just not extended."""
+        assert self.compute(tasks_completed=1, day_in_progress=True) == 5
+
+    def test_checkin_with_no_tasks_counts(self):
+        assert self.compute(tasks_total=0, commitment_kept=True) == 6
+
+    def test_no_tasks_no_checkin_does_not_count(self):
+        assert ConsistencyStreakMetric.day_counts(None, 0, 0, 0.5) is False
+
+    def test_new_user_first_day(self):
+        assert self.compute(yesterday_streak=0, commitment_kept=True) == 1
 
 
 # =============================================================================

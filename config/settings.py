@@ -115,6 +115,10 @@ class Settings(BaseSettings):
     # aura = (disc/100)^0.5 * (ps_hrs/ps_target)^0.5 * log(1+streak)
     ps_hrs_target_per_3days: float = 6.0
 
+    # Consistency streak: a day counts if the user checks in "I kept my commitment"
+    # or completes at least this share of their planned tasks (0.0–1.0).
+    streak_min_completion: float = Field(default=0.5, alias="STREAK_MIN_COMPLETION")
+
 
 # Singleton — import this everywhere
 settings = Settings()

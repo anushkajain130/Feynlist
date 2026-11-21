@@ -213,22 +213,63 @@ class AuraMetric:
 
 
 # =============================================================================
-# RETENTION STREAK
+# CONSISTENCY STREAK
 # =============================================================================
 
-class RetentionStreakMetric:
+class ConsistencyStreakMetric:
     """
-    Days since the user last triggered a streak-breaking event (relapse).
+    Consecutive days on which the user kept their commitment to their plan.
 
-    If today is a relapse day: streak = 0
-    Else: streak = yesterday_streak + 1
+    A day "counts" if EITHER:
+      - the user checked in with "I kept my commitment today", OR
+      - they completed at least `min_completion` (default 50%) of their planned tasks.
+
+    Rules:
+      - Checked in "Not today"            -> streak = 0
+      - Day counts                         -> streak = base + 1
+      - Day doesn't count, still in progress (today) -> streak = base (not broken yet)
+      - Day doesn't count and is over      -> streak = 0
+
+    `base` is yesterday's streak if yesterday counted, else 0
+    (see `day_counts` for evaluating a stored day).
+
+    The DB column is still named `retention_streak` for compatibility.
     """
 
     @staticmethod
-    def compute(relapsed: bool, yesterday_streak: int) -> int:
-        if relapsed:
-            return 0  # Streak broken today
-        return yesterday_streak + 1
+    def day_counts(
+        commitment_kept: Optional[bool],
+        tasks_completed: int,
+        tasks_total: int,
+        min_completion: Optional[float] = None,
+    ) -> bool:
+        if min_completion is None:
+            min_completion = settings.streak_min_completion
+        if commitment_kept is False:
+            return False
+        if commitment_kept is True:
+            return True
+        if tasks_total <= 0:
+            return False
+        return (tasks_completed / tasks_total) >= min_completion
+
+    @staticmethod
+    def compute(
+        yesterday_streak: int,
+        commitment_kept: Optional[bool],
+        tasks_completed: int,
+        tasks_total: int,
+        day_in_progress: bool,
+        min_completion: Optional[float] = None,
+    ) -> int:
+        base = max(0, yesterday_streak)
+        if commitment_kept is False:
+            return 0
+        if ConsistencyStreakMetric.day_counts(
+            commitment_kept, tasks_completed, tasks_total, min_completion
+        ):
+            return base + 1
+        return base if day_in_progress else 0
 
 
 # =============================================================================

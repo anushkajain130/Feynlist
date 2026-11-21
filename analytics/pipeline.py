@@ -24,7 +24,7 @@ from analytics.metrics import (
     DisciplineMetric,
     PSHoursMetric,
     AuraMetric,
-    RetentionStreakMetric,
+    ConsistencyStreakMetric,
     PointsMetric,
 )
 
@@ -48,7 +48,11 @@ class AnalyticsPipeline:
         # 1. Load tasks for the target date
         tasks = await task_repo.get_tasks_for_date(target_date)
 
-        if not tasks:
+        # Preserve the day's check-in answer, if any
+        existing = await analytics_repo.get_metrics_for_date(target_date)
+        commitment_kept = existing.commitment_kept if existing else None
+
+        if not tasks and commitment_kept is None:
             logger.warning(f"No tasks found for {target_date}. Skipping analytics.")
             return DailyMetrics(date=target_date)
 
@@ -57,11 +61,13 @@ class AnalyticsPipeline:
         yesterday_date = target_date - timedelta(days=1)
         yesterday = await analytics_repo.get_metrics_for_date(yesterday_date)
 
-        yesterday_streak = yesterday.retention_streak if yesterday else 0
-
-        # Fetch existing metrics for today to preserve the relapse status
-        existing = await analytics_repo.get_metrics_for_date(target_date)
-        relapsed = existing.relapsed if existing else False
+        # Yesterday's streak only carries over if yesterday itself counted
+        # (a day with no record, or that didn't count, resets the base to 0).
+        yesterday_streak = 0
+        if yesterday and ConsistencyStreakMetric.day_counts(
+            yesterday.commitment_kept, yesterday.tasks_completed, yesterday.tasks_total
+        ):
+            yesterday_streak = yesterday.retention_streak
 
         # 3. Compute all metrics
         now = datetime.now().time()
@@ -69,10 +75,16 @@ class AnalyticsPipeline:
         alertness = AlertnessMetric.compute(tasks, yesterday, now)
         discipline = DisciplineMetric.compute(tasks, yesterday, now)
         ps_hrs = PSHoursMetric.compute(tasks)
-        retention_streak = RetentionStreakMetric.compute(relapsed, yesterday_streak)
+        tasks_completed = sum(1 for t in tasks if t.completed)
+        retention_streak = ConsistencyStreakMetric.compute(
+            yesterday_streak=yesterday_streak,
+            commitment_kept=commitment_kept,
+            tasks_completed=tasks_completed,
+            tasks_total=len(tasks),
+            day_in_progress=target_date >= date.today(),
+        )
         aura = AuraMetric.compute(discipline, ps_hrs, retention_streak)
         total_points = PointsMetric.compute_total(tasks)
-        tasks_completed = sum(1 for t in tasks if t.completed)
 
         # 4. Assemble metrics object
         metrics = DailyMetrics(
@@ -85,7 +97,7 @@ class AnalyticsPipeline:
             total_points=total_points,
             tasks_completed=tasks_completed,
             tasks_total=len(tasks),
-            relapsed=relapsed,
+            commitment_kept=commitment_kept,
         )
 
         # 5. Persist (single write — fixes V0 double-write bug)

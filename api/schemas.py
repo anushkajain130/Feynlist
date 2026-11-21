@@ -100,12 +100,16 @@ class DailyMetricsResponse(BaseModel):
     tasks_total: int
     completion_rate: float
     has_data: bool
-    relapsed: bool = False
+    # Daily check-in: null = not answered, true = kept commitment, false = "not today"
+    kept_commitment: Optional[bool] = None
 
 
 class CheckInRequest(BaseModel):
+    """Neutral daily consistency check-in."""
     date: Optional[str] = None  # YYYY-MM-DD, defaults to today
-    relapsed: bool
+    kept_commitment: bool = Field(
+        description="True = 'I kept my commitment today', False = 'Not today'"
+    )
 
 
 class TrendResponse(BaseModel):

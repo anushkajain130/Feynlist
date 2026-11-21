@@ -369,9 +369,9 @@ export default function DashboardClient({ initialTasks, initialMetrics }: Props)
     }
   }, []);
 
-  const handleCheckIn = useCallback(async (relapsed: boolean) => {
+  const handleCheckIn = useCallback(async (keptCommitment: boolean) => {
     try {
-      const res = await api.analytics.checkIn(relapsed);
+      const res = await api.analytics.checkIn(keptCommitment);
       setMetrics(res);
     } catch (e) {
       console.error("Check-in failed", e);
@@ -791,7 +791,7 @@ export default function DashboardClient({ initialTasks, initialMetrics }: Props)
           title="Click to learn how Aura is computed!"
         >
           <StatCard label="Aura (Click for Info)" value={(metrics?.aura ?? 0).toFixed(2)}
-            sub={`${metrics?.retention_streak ?? 0}d streak · Info`}
+            sub={`${metrics?.retention_streak ?? 0}d consistency streak · Info`}
             icon={Flame} color="#f472b6" />
         </div>
 
@@ -836,14 +836,14 @@ export default function DashboardClient({ initialTasks, initialMetrics }: Props)
               <ul style={{ paddingLeft: "14px", marginTop: "4px" }}>
                 <li><strong>Discipline</strong> (Starting scheduled timeblocks on time)</li>
                 <li><strong>PS Hours</strong> (Problem Solving study block density)</li>
-                <li><strong>Retention Streak</strong> (Days without deviation resets)</li>
+                <li><strong>Consistency streak</strong> (Days you kept your commitment to your plan)</li>
               </ul>
             </div>
             <div>
               <span style={{ color: "#5eead4" }}><strong>Score mechanics:</strong></span>
               <ul style={{ paddingLeft: "14px", marginTop: "4px" }}>
                 <li><strong>Increases</strong> by maintaining high discipline, studying consistently, and protecting your streak.</li>
-                <li><strong>Decreases</strong> to 0 immediately if you log a streak-breaking deviation, or declines gradually if study volume drops.</li>
+                <li><strong>Resets</strong> when a day ends without keeping your commitment, or declines gradually if study volume drops.</li>
               </ul>
             </div>
           </div>
@@ -975,7 +975,7 @@ export default function DashboardClient({ initialTasks, initialMetrics }: Props)
           }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
               <span style={{ fontSize: "15px", fontWeight: 700, color: "var(--text)", display: "flex", alignItems: "center", gap: "8px" }}>
-                <Flame size={16} style={{ color: "#f472b6" }} /> Daily Check-In (Private)
+                <Flame size={16} style={{ color: "#f472b6" }} /> Daily Check-In
               </span>
               <button
                 onClick={() => setShowCheckInModal(false)}
@@ -988,8 +988,12 @@ export default function DashboardClient({ initialTasks, initialMetrics }: Props)
               </button>
             </div>
             
-            <p style={{ fontSize: "13px", color: "var(--text)", lineHeight: 1.5, marginBottom: "20px" }}>
-              Did you masturbate today? (Your response strictly resets or extends your streak privately. It will not be logged on public schedules or task lists).
+            <p style={{ fontSize: "13px", color: "var(--text)", lineHeight: 1.5, marginBottom: "8px" }}>
+              Did you keep your commitment to today&apos;s plan?
+            </p>
+            <p style={{ fontSize: "12px", color: "var(--text-muted)", lineHeight: 1.5, marginBottom: "20px" }}>
+              Your consistency streak grows on days you tap &quot;Yes&quot; or finish at least half of your planned tasks.
+              &quot;Not today&quot; resets it to zero. That&apos;s fine; tomorrow is a fresh start.
             </p>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "16px" }}>
@@ -999,15 +1003,15 @@ export default function DashboardClient({ initialTasks, initialMetrics }: Props)
                   setShowCheckInModal(false);
                 }}
                 style={{
-                  background: metrics?.relapsed ? "rgba(239, 68, 68, 0.18)" : "rgba(255, 255, 255, 0.03)",
-                  color: metrics?.relapsed ? "#ef4444" : "var(--text-muted)",
-                  border: metrics?.relapsed ? "1px solid rgba(239, 68, 68, 0.4)" : "1px solid rgba(255, 255, 255, 0.06)",
+                  background: metrics?.kept_commitment === true ? "rgba(52, 211, 153, 0.18)" : "rgba(255, 255, 255, 0.03)",
+                  color: metrics?.kept_commitment === true ? "#34d399" : "var(--text-muted)",
+                  border: metrics?.kept_commitment === true ? "1px solid rgba(52, 211, 153, 0.4)" : "1px solid rgba(255, 255, 255, 0.06)",
                   padding: "12px", borderRadius: "10px", fontSize: "13px", fontWeight: 600,
                   cursor: "pointer", transition: "all 0.15s", display: "flex", flexDirection: "column", alignItems: "center", gap: "6px"
                 }}
               >
-                <span style={{ fontSize: "16px" }}>😞</span>
-                Yes (Relapsed)
+                <span style={{ fontSize: "16px" }}>✅</span>
+                Yes, I kept it
               </button>
               <button
                 onClick={() => {
@@ -1015,15 +1019,15 @@ export default function DashboardClient({ initialTasks, initialMetrics }: Props)
                   setShowCheckInModal(false);
                 }}
                 style={{
-                  background: (metrics && !metrics.relapsed) ? "rgba(52, 211, 153, 0.18)" : "rgba(255, 255, 255, 0.03)",
-                  color: (metrics && !metrics.relapsed) ? "#34d399" : "var(--text-muted)",
-                  border: (metrics && !metrics.relapsed) ? "1px solid rgba(52, 211, 153, 0.4)" : "1px solid rgba(255, 255, 255, 0.06)",
+                  background: metrics?.kept_commitment === false ? "rgba(251, 191, 36, 0.14)" : "rgba(255, 255, 255, 0.03)",
+                  color: metrics?.kept_commitment === false ? "#fbbf24" : "var(--text-muted)",
+                  border: metrics?.kept_commitment === false ? "1px solid rgba(251, 191, 36, 0.4)" : "1px solid rgba(255, 255, 255, 0.06)",
                   padding: "12px", borderRadius: "10px", fontSize: "13px", fontWeight: 600,
                   cursor: "pointer", transition: "all 0.15s", display: "flex", flexDirection: "column", alignItems: "center", gap: "6px"
                 }}
               >
-                <span style={{ fontSize: "16px" }}>✨</span>
-                No (Clean)
+                <span style={{ fontSize: "16px" }}>🌙</span>
+                Not today
               </button>
             </div>
 

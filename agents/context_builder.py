@@ -164,7 +164,7 @@ class ContextBuilder:
             f"Alertness: {metrics.alertness:.1f}% | "
             f"PS Hours: {metrics.ps_hrs:.1f}h | "
             f"Aura: {metrics.aura:.2f} | "
-            f"Streak: {metrics.retention_streak}d\n"
+            f"Consistency streak: {metrics.retention_streak}d\n"
             f"Points: {metrics.total_points} | "
             f"Tasks: {metrics.tasks_completed}/{metrics.tasks_total}"
         )
