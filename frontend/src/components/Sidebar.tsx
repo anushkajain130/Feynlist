@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, BarChart3, MessageSquare, Settings } from "lucide-react";
+import { LayoutDashboard, BarChart3, MessageSquare, Info } from "lucide-react";
 import clsx from "clsx";
 
 const nav = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/council", label: "Council", icon: MessageSquare },
-  { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/about", label: "About", icon: Info },
 ];
 
 export default function Sidebar() {
