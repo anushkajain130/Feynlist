@@ -24,7 +24,19 @@ from api.schemas import (
 )
 from agents.orchestrator import orchestrator
 from core.models import AgentId, AppEvent, EventType
-from core.exceptions import AgentCooldownError, AgentRuntimeError
+from core.exceptions import AgentCooldownError, AgentRuntimeError, AgentUnavailableError
+
+
+def _cooldown_message(agent_id: str, seconds: int) -> str:
+    minutes = max(1, round(seconds / 60))
+    return f"{agent_id.capitalize()} is taking a short break. Try again in about {minutes} min."
+
+
+def _unavailable_detail(e: AgentRuntimeError) -> str:
+    """User-safe text for any agent failure; never the raw provider error."""
+    if isinstance(e, AgentUnavailableError):
+        return e.user_message
+    return AgentUnavailableError("provider_error").user_message
 from notifications.triggers import emit_user_message
 
 router = APIRouter(prefix="/api/agents", tags=["Agents"])
@@ -53,7 +65,7 @@ def _agent_msg_to_response(msg) -> AgentMessageResponse:
         input_tokens=getattr(msg, "input_tokens", 0),
         output_tokens=getattr(msg, "output_tokens", 0),
         tokens_used=getattr(msg, "tokens_used", 0),
-        model_used=getattr(msg, "model_used", "gemini-2.5-flash-preview-05-20"),
+        model_used=getattr(msg, "model_used", ""),
         latency_ms=getattr(msg, "latency_ms", 0),
         debug=debug_val,
     )
@@ -93,9 +105,9 @@ async def send_message(req: SendMessageRequest):
                 total_agents=1,
             )
         except AgentCooldownError as e:
-            raise HTTPException(status_code=429, detail=str(e))
+            raise HTTPException(status_code=429, detail=_cooldown_message(e.agent_id, e.seconds_remaining))
         except AgentRuntimeError as e:
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=503, detail=_unavailable_detail(e))
 
     else:
         # Route via event bus → orchestrator
@@ -104,12 +116,15 @@ async def send_message(req: SendMessageRequest):
             source="user",
             payload={"message": req.message},
         )
-        messages = await orchestrator.dispatch(event)
+        try:
+            messages = await orchestrator.dispatch(event, raise_unavailable=True)
+        except AgentRuntimeError as e:
+            raise HTTPException(status_code=503, detail=_unavailable_detail(e))
 
         if not messages:
             raise HTTPException(
                 status_code=429,
-                detail="All agents are on cooldown. Try again shortly."
+                detail="The Council is taking a short break. Try again in a few minutes."
             )
 
         return CouncilResponse(
@@ -121,7 +136,11 @@ async def send_message(req: SendMessageRequest):
 @router.get("/status", response_model=AgentStatusResponse)
 async def get_agent_status():
     """Return cooldown state for all 5 agents."""
-    return AgentStatusResponse(agents=orchestrator.agent_status())
+    from config.settings import settings
+    return AgentStatusResponse(
+        agents=orchestrator.agent_status(),
+        ai_configured=settings.has_api_key,
+    )
 
 
 @router.get("/{agent_id}/ask", response_model=AgentMessageResponse)
@@ -140,9 +159,9 @@ async def ask_agent(agent_id: str, message: str, bypass_cooldown: bool = False):
         )
         return _agent_msg_to_response(msg)
     except AgentCooldownError as e:
-        raise HTTPException(status_code=429, detail=str(e))
+        raise HTTPException(status_code=429, detail=_cooldown_message(e.agent_id, e.seconds_remaining))
     except AgentRuntimeError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=503, detail=_unavailable_detail(e))
 
 
 # =============================================================================
@@ -239,13 +258,31 @@ async def websocket_endpoint(websocket: WebSocket):
                             message=user_message,
                             bypass_cooldown=True,
                         )]
-                    except (AgentCooldownError, AgentRuntimeError) as e:
+                    except AgentCooldownError as e:
                         messages = []
                         await ws_manager.send_to(websocket, {
-                            "type": "error", "message": str(e)
+                            "type": "error",
+                            "message": _cooldown_message(e.agent_id, e.seconds_remaining),
+                        })
+                    except AgentRuntimeError as e:
+                        messages = []
+                        await ws_manager.send_to(websocket, {
+                            "type": "error", "message": _unavailable_detail(e)
                         })
                 else:
-                    messages = await orchestrator.dispatch(event)
+                    try:
+                        messages = await orchestrator.dispatch(event, raise_unavailable=True)
+                    except AgentRuntimeError as e:
+                        messages = []
+                        await ws_manager.send_to(websocket, {
+                            "type": "error", "message": _unavailable_detail(e)
+                        })
+                    else:
+                        if not messages:
+                            await ws_manager.send_to(websocket, {
+                                "type": "error",
+                                "message": "The Council is taking a short break. Try again in a few minutes.",
+                            })
 
                 # Stream each agent response
                 for msg in messages:
@@ -270,7 +307,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         "input_tokens": getattr(msg, "input_tokens", 0),
                         "output_tokens": getattr(msg, "output_tokens", 0),
                         "tokens_used": getattr(msg, "tokens_used", 0),
-                        "model_used": getattr(msg, "model_used", "gemini-2.5-flash-preview-05-20"),
+                        "model_used": getattr(msg, "model_used", ""),
                         "latency_ms": getattr(msg, "latency_ms", 0),
                         "debug": debug_val,
                     })

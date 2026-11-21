@@ -58,7 +58,8 @@ async def get_today_tasks():
     try:
         tasks = await task_repo.get_tasks_for_date(today)
     except DatabaseError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Task DB error: {e}")
+        raise HTTPException(status_code=500, detail="Could not load or save tasks. Please try again.")
 
     completed = sum(1 for t in tasks if t.completed)
     pct = round(completed / len(tasks) * 100, 1) if tasks else 0.0
@@ -83,7 +84,8 @@ async def get_tasks_for_date(target_date: str):
     try:
         tasks = await task_repo.get_tasks_for_date(d)
     except DatabaseError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Task DB error: {e}")
+        raise HTTPException(status_code=500, detail="Could not load or save tasks. Please try again.")
 
     completed = sum(1 for t in tasks if t.completed)
     pct = round(completed / len(tasks) * 100, 1) if tasks else 0.0
@@ -122,7 +124,8 @@ async def toggle_subtask(req: ToggleSubtaskRequest):
     except RecordNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except DatabaseError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Task DB error: {e}")
+        raise HTTPException(status_code=500, detail="Could not load or save tasks. Please try again.")
 
     # Recalculate analytics (non-blocking — fire and move on)
     try:
@@ -151,7 +154,8 @@ async def toggle_complete(req: ToggleCompleteRequest):
     except RecordNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except DatabaseError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Task DB error: {e}")
+        raise HTTPException(status_code=500, detail="Could not load or save tasks. Please try again.")
 
     # Recalculate analytics in background
     try:

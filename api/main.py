@@ -110,12 +110,13 @@ async def health_check():
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    logger.error(f"Unhandled exception on {request.url}: {exc}")
+    # Full detail goes to the server log only; clients get a generic message.
+    logger.exception(f"Unhandled exception on {request.url.path}: {exc}")
     return JSONResponse(
         status_code=500,
         content=ErrorResponse(
             error="Internal server error",
-            detail=str(exc),
+            detail="Something went wrong on the server. Please try again.",
             code=500,
         ).model_dump(),
     )

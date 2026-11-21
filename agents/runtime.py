@@ -31,7 +31,9 @@ from loguru import logger
 
 from config.settings import settings
 from core.models import AgentId, AgentMessage, EventType, ToolResult
-from core.exceptions import AgentCooldownError, AgentRuntimeError
+from core.exceptions import (
+    AgentCooldownError, AgentRuntimeError, AgentUnavailableError, classify_llm_error,
+)
 from agents.context_builder import ContextBuilder
 from agents.response_parser import response_parser
 from memory.short_term import SessionMemory
@@ -81,16 +83,15 @@ class AgentRuntime:
         # Initialize Gemini client
         api_key = settings.resolved_api_key
         if not api_key:
-            raise AgentRuntimeError(
-                "No API key found. Set GEMINI_API_KEY or GOOGLE_API_KEY in your .env file."
-            )
+            # Logged by the orchestrator; the UI only ever sees the friendly message.
+            raise AgentUnavailableError("no_api_key")
 
         self._client = genai.Client(api_key=api_key)
         self._initialized = True
 
         logger.info(
             f"AgentRuntime initialized: {self.agent_id.value} | "
-            f"model={self._config.get('model')} | "
+            f"model={self.model_name} | "
             f"cooldown={self._config.get('cooldown_seconds')}s"
         )
 
@@ -142,9 +143,10 @@ class AgentRuntime:
             output_tokens = out_tokens
             tokens_used = tot_tokens
         except Exception as e:
-            raise AgentRuntimeError(
-                f"LLM call failed for {self.agent_id.value}: {e}"
-            ) from e
+            reason = classify_llm_error(e)
+            # Full provider error goes to the server log only, never to the user.
+            logger.error(f"AgentRuntime[{self.agent_id.value}]: LLM call failed ({reason}): {e}")
+            raise AgentUnavailableError(reason) from e
 
         # 4. Parse response
         parsed = response_parser.parse(raw_response, self.agent_id.value)
@@ -225,7 +227,7 @@ class AgentRuntime:
             logger.info(f"AgentRuntime[{self.agent_id.value}]: Session buffer full — consolidating.")
             try:
                 await memory_summarizer.consolidate_session(
-                    self._session, self._client
+                    self._session, self._client, model=settings.gemini_model_light
                 )
             except Exception as e:
                 logger.warning(f"Memory consolidation failed: {e}")
@@ -244,7 +246,7 @@ class AgentRuntime:
 
     async def _call_llm(self, context: str) -> tuple[str, int, int, int, str]:
         """Make the async Gemini API call. Returns (text, input_tokens, output_tokens, total_tokens, model)."""
-        model = self._config.get("model", "gemini-2.5-flash-preview-05-20")
+        model = self.model_name
         system_prompt = self._config.get("system_prompt", "")
         temperature = float(self._config.get("temperature", 1.0))
         max_tokens = int(self._config.get("max_output_tokens", 400))
@@ -312,12 +314,20 @@ class AgentRuntime:
     async def end_session(self) -> None:
         """Consolidate and clear the session. Call at end of day."""
         if self._initialized and self._client:
-            await memory_summarizer.consolidate_session(self._session, self._client)
+            await memory_summarizer.consolidate_session(
+                self._session, self._client, model=settings.gemini_model_light
+            )
         self._session.clear()
 
     def is_ready(self) -> bool:
         """True if initialized and cooldown has passed."""
         return self._initialized and self._check_cooldown()
+
+    @property
+    def model_name(self) -> str:
+        """Model resolved from the persona's `model_tier` and the env-configured names."""
+        tier = self._config.get("model_tier") if self._config else None
+        return settings.model_for_tier(tier)
 
     @property
     def display_name(self) -> str:

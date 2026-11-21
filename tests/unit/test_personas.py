@@ -44,10 +44,12 @@ def persona_text_without_rules(name) -> str:
 def test_required_fields(name):
     cfg = load(name)
     assert cfg["agent_id"] == name
-    for key in ("display_name", "model", "temperature", "max_output_tokens",
+    for key in ("display_name", "model_tier", "temperature", "max_output_tokens",
                 "tools", "triggers", "cooldown_seconds", "system_prompt"):
         assert key in cfg, f"{name} missing {key}"
     assert cfg["tools"] and cfg["cooldown_seconds"] > 0
+    assert cfg["model_tier"] in ("standard", "light")
+    assert "model" not in cfg, "model names come from env vars, not persona YAML"
 
 
 @pytest.mark.parametrize("name", NAMES)

@@ -43,10 +43,15 @@ class Settings(BaseSettings):
     def has_api_key(self) -> bool:
         return bool(self.resolved_api_key)
 
-    # Model routing — stable aliases (no preview suffix, always current)
-    model_high_priority: str = "gemini-2.5-pro"
-    model_standard: str = "gemini-2.5-flash"
-    model_low_priority: str = "gemini-2.5-flash-lite"
+    # Model routing. Free tier only: use Flash or Flash-Lite models (Pro models
+    # have no free-tier quota). Personas pick a tier via `model_tier` in their YAML.
+    # Set both to whichever model has the higher free daily allowance in AI Studio.
+    gemini_model_standard: str = Field(default="gemini-2.5-flash", alias="GEMINI_MODEL_STANDARD")
+    gemini_model_light: str = Field(default="gemini-2.5-flash-lite", alias="GEMINI_MODEL_LIGHT")
+
+    def model_for_tier(self, tier: str | None) -> str:
+        """'light' -> GEMINI_MODEL_LIGHT, anything else -> GEMINI_MODEL_STANDARD."""
+        return self.gemini_model_light if tier == "light" else self.gemini_model_standard
 
     # -------------------------------------------------------------------------
     # Database

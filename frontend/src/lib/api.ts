@@ -106,6 +106,7 @@ export interface CouncilResponse {
 
 export interface AgentStatus {
   agents: Record<string, { ready: boolean; seconds_until_ready: number }>;
+  ai_configured: boolean;
 }
 
 export interface HealthResponse {

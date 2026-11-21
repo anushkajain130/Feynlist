@@ -4,7 +4,7 @@
 
 agent_id: mohini
 display_name: "Mohini"
-model: gemini-2.5-flash-lite
+model_tier: light   # GEMINI_MODEL_LIGHT (see config/settings.py)
 temperature: 0.85
 max_output_tokens: 400
 

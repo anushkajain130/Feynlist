@@ -24,7 +24,7 @@ from loguru import logger
 
 from config.settings import settings
 from core.models import AgentId, AgentMessage, AppEvent, EventType
-from core.exceptions import AgentCooldownError, AgentRuntimeError
+from core.exceptions import AgentCooldownError, AgentRuntimeError, AgentUnavailableError
 from agents.runtime import AgentRuntime
 
 
@@ -91,7 +91,9 @@ class Orchestrator:
 
         if failed:
             for agent_id, err in failed:
-                logger.warning(f"Orchestrator: {agent_id.value} failed to init: {err}")
+                reason = getattr(err, "reason", None)
+                hint = " (set GEMINI_API_KEY on the server)" if reason == "no_api_key" else ""
+                logger.warning(f"Orchestrator: {agent_id.value} failed to init: {reason or err}{hint}")
             if len(failed) == len(self._runtimes):
                 logger.error("Orchestrator: ALL agent runtimes failed to initialize.")
             else:
@@ -105,10 +107,14 @@ class Orchestrator:
     # DISPATCH (main entry point from EventBus)
     # ------------------------------------------------------------------
 
-    async def dispatch(self, event: AppEvent) -> list[AgentMessage]:
+    async def dispatch(self, event: AppEvent, raise_unavailable: bool = False) -> list[AgentMessage]:
         """
         Handle an event. Returns list of AgentMessage responses.
         Routes to SOLO or COUNCIL mode based on event type.
+
+        raise_unavailable: for user-initiated calls, re-raise AgentUnavailableError
+        (no key / quota / provider error) so the caller can show a friendly message
+        instead of silently returning nothing.
         """
         if not self._initialized:
             await self.initialize()
@@ -124,18 +130,18 @@ class Orchestrator:
 
         # COUNCIL mode: user addressed the full council
         if event.event_type == EventType.USER_DIRECT_MESSAGE and self._is_council_call(event):
-            return await self._invoke_council(event)
+            return await self._invoke_council(event, raise_unavailable)
 
         # SOLO mode: pick one agent
         target_agent = mentioned_agent or EVENT_AGENT_MAP.get(event.event_type, AgentId.FREYA)
-        return await self._invoke_solo(target_agent, event)
+        return await self._invoke_solo(target_agent, event, raise_unavailable)
 
     # ------------------------------------------------------------------
     # SOLO INVOKE
     # ------------------------------------------------------------------
 
     async def _invoke_solo(
-        self, agent_id: AgentId, event: AppEvent
+        self, agent_id: AgentId, event: AppEvent, raise_unavailable: bool = False
     ) -> list[AgentMessage]:
         """Invoke a single agent and return their message."""
         runtime = self._runtimes[agent_id]
@@ -152,24 +158,42 @@ class Orchestrator:
         except AgentCooldownError as e:
             logger.debug(f"Orchestrator: {agent_id.value} on cooldown — skipping.")
             return []
+        except AgentUnavailableError as e:
+            logger.warning(f"Orchestrator: {agent_id.value} unavailable ({e.reason}).")
+            if raise_unavailable:
+                raise
+            return []
         except AgentRuntimeError as e:
             logger.error(f"Orchestrator: {agent_id.value} runtime error: {e}")
+            if raise_unavailable:
+                raise AgentUnavailableError("provider_error") from e
             return []
 
     # ------------------------------------------------------------------
     # COUNCIL INVOKE
     # ------------------------------------------------------------------
 
-    async def _invoke_council(self, event: AppEvent) -> list[AgentMessage]:
+    async def _invoke_council(
+        self, event: AppEvent, raise_unavailable: bool = False
+    ) -> list[AgentMessage]:
         """
         Invoke all agents sequentially (Council mode).
         Each agent can see the responses of the previous agents in the session.
         """
         user_message = event.payload.get("message", "") if event.payload else ""
         responses = []
+        last_unavailable: AgentUnavailableError | None = None
 
         for agent_id in COUNCIL_ORDER:
             runtime = self._runtimes[agent_id]
+
+            # Skip agents that failed to initialise (e.g. no API key)
+            if not runtime._initialized:
+                try:
+                    await runtime.initialize()
+                except AgentUnavailableError as e:
+                    last_unavailable = e
+                    continue
 
             # Skip agents on individual cooldown (unless it's a direct message)
             if not runtime.is_ready():
@@ -187,10 +211,16 @@ class Orchestrator:
                 # Small delay between agents — makes the response feel sequential
                 await asyncio.sleep(0.1)
 
+            except AgentUnavailableError as e:
+                logger.warning(f"Orchestrator council: {agent_id.value} unavailable ({e.reason}).")
+                last_unavailable = e
             except Exception as e:
                 logger.error(f"Orchestrator council: {agent_id.value} failed: {e}")
 
-        self._set_global_cooldown()
+        if responses:
+            self._set_global_cooldown()
+        elif raise_unavailable and last_unavailable is not None:
+            raise last_unavailable
         return responses
 
     # ------------------------------------------------------------------

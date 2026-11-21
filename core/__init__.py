@@ -28,6 +28,7 @@ from core.exceptions import (
     ToolNotFoundError,
     ToolPermissionError,
     RateLimitExceeded,
+    AgentUnavailableError,
 )
 
 __all__ = [

@@ -153,6 +153,7 @@ export default function CouncilPage() {
   const [loading, setLoading] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<AgentKey>("freya");
   const [tokensToday, setTokensToday] = useState(0);
+  const [aiConfigured, setAiConfigured] = useState<boolean | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -168,6 +169,13 @@ export default function CouncilPage() {
       console.error("Failed to fetch today's token usage", e);
     }
   }, []);
+
+  // Is live AI set up on the server? (Socket "connected" alone doesn't mean agents can reply.)
+  useEffect(() => {
+    api.agents.status()
+      .then(s => setAiConfigured(s.ai_configured))
+      .catch(() => setAiConfigured(null));
+  }, [connected]);
 
   // Auto-scroll
   useEffect(() => {
@@ -264,9 +272,10 @@ export default function CouncilPage() {
           <div style={{ fontSize: "12px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em" }}>The</div>
           <h1 style={{ fontSize: "28px", fontWeight: 700 }} className="gradient-text">Council</h1>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: connected ? "#34d399" : "#6b6b80" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px",
+          color: !connected ? "#6b6b80" : aiConfigured === false ? "#fbbf24" : "#34d399" }}>
           {connected ? <Wifi size={14} /> : <WifiOff size={14} />}
-          {connected ? "Live" : "Offline"}
+          {!connected ? "Offline" : aiConfigured === false ? "Connected · AI replies unavailable" : "Connected"}
         </div>
       </div>
 

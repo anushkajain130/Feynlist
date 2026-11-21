@@ -176,6 +176,7 @@ class CouncilResponse(BaseModel):
 
 class AgentStatusResponse(BaseModel):
     agents: dict[str, dict]   # {agent_id: {ready, seconds_until_ready}}
+    ai_configured: bool = False   # False when no Gemini key is set on the server
 
 
 # =============================================================================

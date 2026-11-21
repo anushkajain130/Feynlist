@@ -4,7 +4,7 @@
 
 agent_id: freya
 display_name: "Freya"
-model: gemini-2.5-flash
+model_tier: standard   # GEMINI_MODEL_STANDARD (see config/settings.py)
 temperature: 1.0
 max_output_tokens: 400
 
