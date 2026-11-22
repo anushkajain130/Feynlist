@@ -89,11 +89,13 @@ async def main(api: str, web: str | None) -> int:
                 "Origin": origin, "Access-Control-Request-Method": "GET",
                 "Access-Control-Request-Headers": "x-feynlist-session,x-feynlist-tz"})
             allowed = r.headers.get("access-control-allow-origin")
-            record("CORS allows the frontend", allowed in (origin, "*"), f"allow-origin={allowed}")
+            record("CORS allows the frontend", allowed == origin,
+                   f"allow-origin={allowed}" + (" (ALLOWED_ORIGINS is still '*': set it to the frontend URL)" if allowed == "*" else ""))
             r = await c.options(f"{api}/api/tasks/today", headers={
                 "Origin": "https://not-your-site.example", "Access-Control-Request-Method": "GET"})
-            record("CORS blocks other sites", r.headers.get("access-control-allow-origin") != "https://not-your-site.example",
-                   f"allow-origin={r.headers.get('access-control-allow-origin')}")
+            other = r.headers.get("access-control-allow-origin")
+            record("CORS blocks other sites", other not in ("https://not-your-site.example", "*"),
+                   f"allow-origin={other}")
             r = await c.get(origin, follow_redirects=True)
             record("frontend loads", r.status_code == 200, f"HTTP {r.status_code}")
 

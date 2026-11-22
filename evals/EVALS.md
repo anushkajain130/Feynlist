@@ -92,6 +92,14 @@ Full suite after these changes: **168 passed** on Python 3.13 (`evals/evidence/a
 | E-03 | E2E cold start (browser) | Backend down: "Waking the server, this can take up to a minute…" (no empty-account text); backend started: page loads by itself ~5 s later | As described | As expected | Executed-Pass | `evals/evidence/e2e_backend_down_recovery.txt` |
 | E-04 | Phone layout, demo mode | Same 16-view overflow check with the new demo and nudge panels | 0 overflow, 0 page errors | 0 / 0 on all 16 views | Executed-Pass | `evals/evidence/after_responsive_check.txt` |
 
+### Deployment (executed 2026-11-22 against the live URLs)
+
+Backend `https://feynlist-api.onrender.com` (Render, free plan), frontend `https://feynlist.vercel.app` (Vercel). Run with `python -m scripts.check_deploy --api ... --web ...`.
+
+| Test ID | Area | Scenario | Expected | Actual | Status | Evidence |
+|---|---|---|---|---|---|---|
+| D-01 | Deployed evaluator journey | health; demo mode; sample plan + 14-day history; task toggle updates analytics; one coach reply; budget; session required; CORS; frontend 200; websocket over wss | All pass, coach reply live | Health 200 (5 agents ready, so the key is loaded); sample data seeded; toggle 0 → 30 points; session-less request 400; frontend 200; **wss connects**. **Live reply failed with a non-quota provider error and fell back to a labelled sample.** Likely cause: the configured `gemini-2.5-flash` models were reportedly shut down on 2026-10-16 (not confirmed from Render logs). **CORS returned `*`** (`ALLOWED_ORIGINS` not yet set to the Vercel URL). The script originally accepted `*`; fixed so it now fails. | Executed-Fail (live AI, CORS) | `evals/evidence/check_deploy_live.txt` |
+
 ### Still open / not verified
 
 - **No live model call has been made in any eval.** The live path of the budget (2 live replies, then samples), the truncation fix (issue 4) and all persona behaviour are verified only with a stubbed model. They need a small live batch with the owner's key (P-01 to P-09).

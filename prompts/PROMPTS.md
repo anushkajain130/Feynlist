@@ -267,3 +267,11 @@ Status for all entries: **New improvement prompt**. Entries are verbatim and in 
 > push
 
 **What it changed:** pushed the deploy kit commit to `claude/dazzling-hopper-tk9c3k`. No code changed.
+
+### C10. 2026-11-22
+
+> https://feynlist.vercel.app/
+>
+> https://feynlist-api.onrender.com
+
+**What it changed:** ran `scripts/check_deploy.py` against the live URLs and recorded the result in EVALS.md (D-01). The CORS checks no longer accept a `*` wildcard. No app code changed.
