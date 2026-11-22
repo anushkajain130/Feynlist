@@ -255,3 +255,9 @@ Status for all entries: **New improvement prompt**. Entries are verbatim and in 
 > push
 
 **What it changed:** pushed the commits for prompt C6 (layout, lockfile/lint/smoke test, evals re-run, PROMPTS Section B, CLAUDE.md untracked, cut list, demo mode, free-tier AI budget) to `claude/dazzling-hopper-tk9c3k`. No code changed.
+
+### C8. 2026-11-22
+
+> yes, let me what do i need to deploy, it, we need to do it quick
+
+**What it changed:** added the deploy kit: `render.yaml`, `.python-version`, `DEPLOY.md` (click-by-click guide for Render and Vercel) and `scripts/check_deploy.py` (post-deploy check). Also lists what the owner needs to deploy. Nothing was deployed.
