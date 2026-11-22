@@ -249,3 +249,9 @@ Status for all entries: **New improvement prompt**. Entries are verbatim and in 
 > Before moving on, finish these. (1) Fix the responsive layout so every page is usable at phone width (390px), and add before/after screenshots. (2) Fix the lockfile so npm ci works, fix the lint errors, and make scripts/smoke_test.py fail honestly. (3) Re-run every baseline row B-01 to B-20 plus all new tests, and update evals/EVALS.md with an "After fixes" result per row, including anything still failing. (4) In prompts/PROMPTS.md, rewrite the Section B summaries in neutral language with no explicit terms, and add the new persona prompts and the check-in change as entries describing what replaced them. (5) Remove CLAUDE.md from the repository (keep it listed in .gitignore) and tell me where the working copy is. Then continue with the cut list, demo mode and the free-tier AI limits from CLAUDE.md. Show me a summary of each step before moving to the next.
 
 **What it changed:** see the commits that follow this entry (responsive layout, lockfile/lint/smoke test, EVALS re-run, PROMPTS Section B rewrite, CLAUDE.md untracked, then cut list, demo mode and free-tier AI limits).
+
+### C7. 2026-11-22
+
+> push
+
+**What it changed:** pushed the commits for prompt C6 (layout, lockfile/lint/smoke test, evals re-run, PROMPTS Section B, CLAUDE.md untracked, cut list, demo mode, free-tier AI budget) to `claude/dazzling-hopper-tk9c3k`. No code changed.
