@@ -100,12 +100,16 @@ class DailyMetricsResponse(BaseModel):
     tasks_total: int
     completion_rate: float
     has_data: bool
-    relapsed: bool = False
+    # Daily check-in: null = not answered, true = kept commitment, false = "not today"
+    kept_commitment: Optional[bool] = None
 
 
 class CheckInRequest(BaseModel):
+    """Neutral daily consistency check-in."""
     date: Optional[str] = None  # YYYY-MM-DD, defaults to today
-    relapsed: bool
+    kept_commitment: bool = Field(
+        description="True = 'I kept my commitment today', False = 'Not today'"
+    )
 
 
 class TrendResponse(BaseModel):
@@ -163,6 +167,9 @@ class AgentMessageResponse(BaseModel):
     model_used: str = ""
     latency_ms: int = 0
     debug: Optional[dict] = None
+    is_sample: bool = False
+    sample_label: Optional[str] = None    # "Sample reply (pre-written, not live)"
+    sample_reason: Optional[str] = None   # short, friendly explanation
 
 
 class CouncilResponse(BaseModel):
@@ -172,6 +179,7 @@ class CouncilResponse(BaseModel):
 
 class AgentStatusResponse(BaseModel):
     agents: dict[str, dict]   # {agent_id: {ready, seconds_until_ready}}
+    ai_configured: bool = False   # False when no Gemini key is set on the server
 
 
 # =============================================================================

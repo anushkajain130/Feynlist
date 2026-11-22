@@ -1,20 +1,22 @@
+"use client";
+
+import DataLoader from "@/components/DataLoader";
 import { api } from "@/lib/api";
 import AnalyticsClient from "./AnalyticsClient";
 
-export const revalidate = 0;
+async function loadAnalytics() {
+  const [history, weekly, burnout] = await Promise.all([
+    api.analytics.history(14),
+    api.analytics.weekly(),
+    api.analytics.burnout(),
+  ]);
+  return { history, weekly, burnout };
+}
 
-export default async function AnalyticsPage() {
-  let history = null;
-  let weekly = null;
-  let burnout = null;
-
-  try {
-    [history, weekly, burnout] = await Promise.all([
-      api.analytics.history(14),
-      api.analytics.weekly(),
-      api.analytics.burnout(),
-    ]);
-  } catch {}
-
-  return <AnalyticsClient history={history} weekly={weekly} burnout={burnout} />;
+export default function AnalyticsPage() {
+  return (
+    <DataLoader load={loadAnalytics}>
+      {d => <AnalyticsClient history={d.history} weekly={d.weekly} burnout={d.burnout} />}
+    </DataLoader>
+  );
 }

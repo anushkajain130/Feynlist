@@ -63,6 +63,46 @@ class AgentRuntimeError(AgentError):
     """Raised on unrecoverable agent runtime errors (config missing, LLM failure)."""
 
 
+# Short, user-safe messages. Raw provider errors are logged server-side only.
+AI_UNAVAILABLE_MESSAGES = {
+    "no_api_key": (
+        "Live AI replies aren't set up on this server, so the Council can't answer "
+        "right now. Your plan and stats still work."
+    ),
+    "quota": (
+        "The Council has reached its free AI limit for now. Please try again later. "
+        "Your plan and stats still work."
+    ),
+    "provider_error": (
+        "The Council couldn't reply just now. Please try again in a moment. "
+        "Your plan and stats still work."
+    ),
+}
+
+
+class AgentUnavailableError(AgentRuntimeError):
+    """
+    The LLM can't be used right now (no key, quota/rate limit, provider error).
+    `user_message` is safe to show in the UI; `reason` is a short code.
+    """
+
+    def __init__(self, reason: str):
+        self.reason = reason if reason in AI_UNAVAILABLE_MESSAGES else "provider_error"
+        self.user_message = AI_UNAVAILABLE_MESSAGES[self.reason]
+        super().__init__(self.user_message)
+
+
+def classify_llm_error(exc: BaseException) -> str:
+    """Map a provider exception to a reason code without exposing its text."""
+    code = getattr(exc, "code", None) or getattr(exc, "status_code", None)
+    text = str(exc).lower()
+    if code == 429 or "resource_exhausted" in text or "quota" in text or "rate limit" in text:
+        return "quota"
+    if code in (401, 403) or "api key not valid" in text or "api_key_invalid" in text:
+        return "no_api_key"
+    return "provider_error"
+
+
 # --- Tools ---
 class ToolError(FeynlistError):
     """Base exception for tool execution errors."""
@@ -114,14 +154,4 @@ class ConfigError(FeynlistError):
         super().__init__(f"Config error for '{key}': {reason}")
 
 
-# --- Rate Limiting ---
-class RateLimitExceeded(FeynlistError):
-    """Raised when a user has hit their daily interaction limit."""
 
-    def __init__(self, user_id: str, tier: str, limit: int):
-        super().__init__(
-            f"User '{user_id}' ({tier} tier) has exceeded daily limit of {limit} interactions."
-        )
-        self.user_id = user_id
-        self.tier = tier
-        self.limit = limit

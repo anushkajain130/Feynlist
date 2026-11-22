@@ -16,6 +16,7 @@ from loguru import logger
 from core.models import Task, TaskClass
 from core.exceptions import RecordNotFoundError, DatabaseError
 from data.database import db, row_to_dict, dump_json_field
+from core import clock
 
 
 class TaskRepository:
@@ -61,7 +62,7 @@ class TaskRepository:
         Returns the task whose time window contains right now.
         Returns None if no task is currently scheduled.
         """
-        now_str = datetime.now().strftime("%H:%M")
+        now_str = clock.now().strftime("%H:%M")
         row = await db.fetch_one(
             """
             SELECT * FROM tasks

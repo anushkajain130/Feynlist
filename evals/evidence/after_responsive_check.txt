@@ -1,0 +1,16 @@
+[phone] home: elements past viewport (390px) = 0; page errors = 0 -> after_phone_home.png
+[phone] home_task_expanded: elements past viewport (390px) = 0; page errors = 0 -> after_phone_home_task_expanded.png
+[phone] home_planner: elements past viewport (390px) = 0; page errors = 0 -> after_phone_home_planner.png
+[phone] home_checkin: elements past viewport (390px) = 0; page errors = 0 -> after_phone_home_checkin.png
+[phone] home_aura_info: elements past viewport (390px) = 0; page errors = 0 -> after_phone_home_aura_info.png
+[phone] analytics: elements past viewport (390px) = 0; page errors = 0 -> after_phone_analytics.png
+[phone] council: elements past viewport (390px) = 0; page errors = 0 -> after_phone_council.png
+[phone] about: elements past viewport (390px) = 0; page errors = 0 -> after_phone_about.png
+[desktop] home: elements past viewport (1366px) = 0; page errors = 0 -> after_desktop_home.png
+[desktop] home_task_expanded: elements past viewport (1366px) = 0; page errors = 0 -> after_desktop_home_task_expanded.png
+[desktop] home_planner: elements past viewport (1366px) = 0; page errors = 0 -> after_desktop_home_planner.png
+[desktop] home_checkin: elements past viewport (1366px) = 0; page errors = 0 -> after_desktop_home_checkin.png
+[desktop] home_aura_info: elements past viewport (1366px) = 0; page errors = 0 -> after_desktop_home_aura_info.png
+[desktop] analytics: elements past viewport (1366px) = 0; page errors = 0 -> after_desktop_analytics.png
+[desktop] council: elements past viewport (1366px) = 0; page errors = 0 -> after_desktop_council.png
+[desktop] about: elements past viewport (1366px) = 0; page errors = 0 -> after_desktop_about.png

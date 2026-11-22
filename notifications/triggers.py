@@ -18,6 +18,7 @@ from events.event_bus import event_bus
 from data.repositories.task_repo import task_repo
 from data.repositories.analytics_repo import analytics_repo
 from analytics.trends import trend_analyzer
+from core import clock
 
 
 async def emit_task_missed() -> None:
@@ -25,8 +26,8 @@ async def emit_task_missed() -> None:
     Check if any task passed its end time without being completed.
     Fires TASK_MISSED event for each missed task found.
     """
-    now = datetime.now().time()
-    today = date.today()
+    now = clock.now().time()
+    today = clock.today()
 
     try:
         tasks = await task_repo.get_tasks_for_date(today)
@@ -37,23 +38,31 @@ async def emit_task_missed() -> None:
     for task in tasks:
         if task.is_past_at(now) and not task.completed:
             # Skip passive classes — no point alerting for sleep/break misses
-            if task.task_class.value in ("Sleep", "Break", "Deviated", "revived"):
+            if task.task_class.value in ("Sleep", "Break"):
                 continue
 
-            event = AppEvent(
-                event_type=EventType.TASK_MISSED,
-                source="scheduler",
-                payload={
-                    "task_id": task.id,
-                    "task_name": task.task,
-                    "end_time": task.end_time,
-                    "points": task.points,
-                    "class": task.task_class.value,
-                    "message": f"Task missed: '{task.task}' ended at {task.end_time}.",
-                },
-            )
-            logger.info(f"Trigger: TASK_MISSED → {task.task}")
-            await event_bus.publish(event)
+            await emit_task_missed_for(task)
+
+
+def task_missed_event(task, source: str = "scheduler") -> AppEvent:
+    return AppEvent(
+        event_type=EventType.TASK_MISSED,
+        source=source,
+        payload={
+            "task_id": task.id,
+            "task_name": task.task,
+            "end_time": task.end_time,
+            "points": task.points,
+            "class": task.task_class.value,
+            "message": f"Task missed: '{task.task}' ended at {task.end_time}.",
+        },
+    )
+
+
+async def emit_task_missed_for(task, source: str = "scheduler") -> None:
+    """Emit TASK_MISSED for one task (Freya)."""
+    logger.info(f"Trigger: TASK_MISSED → {task.task}")
+    await event_bus.publish(task_missed_event(task, source))
 
 
 async def emit_scheduled_checkin() -> None:
@@ -61,7 +70,7 @@ async def emit_scheduled_checkin() -> None:
     Fire a periodic performance checkin event.
     ZeroTwo reviews the current metrics by default.
     """
-    today_metrics = await analytics_repo.get_metrics_for_date(date.today())
+    today_metrics = await analytics_repo.get_metrics_for_date(clock.today())
     summary = await trend_analyzer.get_7day_summary()
 
     event = AppEvent(
@@ -104,9 +113,9 @@ async def emit_streak_event() -> None:
     """
     Emit STREAK_BROKEN or STREAK_MILESTONE based on today's metrics.
     """
-    today = await analytics_repo.get_metrics_for_date(date.today())
+    today = await analytics_repo.get_metrics_for_date(clock.today())
     yesterday = await analytics_repo.get_metrics_for_date(
-        date.today() - timedelta(days=1)
+        clock.today() - timedelta(days=1)
     )
 
     if not today or not yesterday:
@@ -142,7 +151,7 @@ async def emit_streak_event() -> None:
 
 async def emit_day_start() -> None:
     """Fired at the start of each day. Freya reviews the incoming schedule."""
-    tasks = await task_repo.get_tasks_for_date(date.today())
+    tasks = await task_repo.get_tasks_for_date(clock.today())
     event = AppEvent(
         event_type=EventType.DAY_START,
         source="scheduler",
@@ -158,7 +167,7 @@ async def emit_day_start() -> None:
 async def emit_day_end() -> None:
     """Fired at end of day. Anya does the review, analytics pipeline runs."""
     from analytics.pipeline import pipeline
-    metrics = await pipeline.run(date.today())
+    metrics = await pipeline.run(clock.today())
 
     event = AppEvent(
         event_type=EventType.DAY_END_REVIEW,
@@ -177,6 +186,34 @@ async def emit_day_end() -> None:
     # Also check burnout and streak
     await emit_burnout_check()
     await emit_streak_event()
+
+
+async def emit_task_completed(task) -> None:
+    """Fired when a task becomes fully completed. Albedo celebrates."""
+    event = AppEvent(
+        event_type=EventType.TASK_COMPLETED,
+        source="tasks",
+        payload={
+            "task_id": task.id,
+            "task_name": task.task,
+            "start_time": task.start_time,
+            "end_time": task.end_time,
+            "message": f"Task completed: '{task.task}' ({task.start_time}–{task.end_time}).",
+        },
+    )
+    logger.info(f"Trigger: TASK_COMPLETED for '{task.task}'")
+    await event_bus.publish(event)
+
+
+def fire_and_forget(coro) -> None:
+    """Run an event emitter in the background so API responses aren't delayed by an LLM call."""
+    import asyncio
+    task = asyncio.create_task(coro)
+    _background.add(task)
+    task.add_done_callback(_background.discard)
+
+
+_background: set = set()
 
 
 async def emit_user_message(message: str, source: str = "user") -> None:

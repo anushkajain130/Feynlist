@@ -31,7 +31,9 @@ from loguru import logger
 
 from config.settings import settings
 from core.models import AgentId, AgentMessage, EventType, ToolResult
-from core.exceptions import AgentCooldownError, AgentRuntimeError
+from core.exceptions import (
+    AgentCooldownError, AgentRuntimeError, AgentUnavailableError, classify_llm_error,
+)
 from agents.context_builder import ContextBuilder
 from agents.response_parser import response_parser
 from memory.short_term import SessionMemory
@@ -81,16 +83,15 @@ class AgentRuntime:
         # Initialize Gemini client
         api_key = settings.resolved_api_key
         if not api_key:
-            raise AgentRuntimeError(
-                "No API key found. Set GEMINI_API_KEY or GOOGLE_API_KEY in your .env file."
-            )
+            # Logged by the orchestrator; the UI only ever sees the friendly message.
+            raise AgentUnavailableError("no_api_key")
 
         self._client = genai.Client(api_key=api_key)
         self._initialized = True
 
         logger.info(
             f"AgentRuntime initialized: {self.agent_id.value} | "
-            f"model={self._config.get('model')} | "
+            f"model={self.model_name} | "
             f"cooldown={self._config.get('cooldown_seconds')}s"
         )
 
@@ -105,18 +106,33 @@ class AgentRuntime:
         memory_query: Optional[str] = None,
         memory_tags: Optional[list[str]] = None,
         bypass_cooldown: bool = False,
+        event_payload: Optional[dict] = None,
+        force_sample: Optional[str] = None,
     ) -> AgentMessage:
         """
-        Full pipeline: context → LLM → parse → optional tool → memory.
-        Returns an AgentMessage.
+        Full pipeline: budget → context → LLM → parse → optional tool → memory.
+        Returns an AgentMessage. When a live reply isn't allowed (free-tier budget,
+        no key, council/automatic nudge in the demo) or the model fails, returns a
+        labelled pre-written sample reply instead (is_sample=True).
         """
         if not self._initialized:
-            await self.initialize()
+            try:
+                await self.initialize()
+            except AgentUnavailableError as e:
+                return await self._sample(triggered_by, e.reason, event_payload)
 
         # 1. Cooldown check
         if not bypass_cooldown and not self._check_cooldown():
             cooldown = self._config.get("cooldown_seconds", 1200)
             raise AgentCooldownError(self.agent_id.value, cooldown)
+
+        # 1b. Free-tier budget: live reply or labelled sample
+        if force_sample:
+            return await self._sample(triggered_by, force_sample, event_payload)
+        from agents.ai_budget import ai_budget
+        decision = ai_budget.reserve()
+        if not decision.live:
+            return await self._sample(triggered_by, decision.reason, event_payload)
 
         # 2. Build context packet
         try:
@@ -136,18 +152,20 @@ class AgentRuntime:
         latency_ms = 0
         start_time = time.perf_counter()
         try:
-            raw_response, in_tokens, out_tokens, tot_tokens, model_used = await self._call_llm(context_text)
+            raw_response, in_tokens, out_tokens, tot_tokens, model_used, truncated = await self._call_llm(context_text)
             latency_ms += int((time.perf_counter() - start_time) * 1000)
             input_tokens = in_tokens
             output_tokens = out_tokens
             tokens_used = tot_tokens
         except Exception as e:
-            raise AgentRuntimeError(
-                f"LLM call failed for {self.agent_id.value}: {e}"
-            ) from e
+            reason = classify_llm_error(e)
+            # Full provider error goes to the server log only, never to the user.
+            logger.error(f"AgentRuntime[{self.agent_id.value}]: LLM call failed ({reason}): {e}")
+            ai_budget.refund_session()   # no live reply was produced
+            return await self._sample(triggered_by, reason, event_payload)
 
         # 4. Parse response
-        parsed = response_parser.parse(raw_response, self.agent_id.value)
+        parsed = response_parser.parse(raw_response, self.agent_id.value, truncated=truncated)
 
         # 5. Handle tool call if requested
         if parsed.has_tool_call and parsed.tool_name:
@@ -160,12 +178,12 @@ class AgentRuntime:
             )
             try:
                 followup_start = time.perf_counter()
-                raw_response, followup_in, followup_out, followup_tot, _ = await self._call_llm(tool_context_text)
+                raw_response, followup_in, followup_out, followup_tot, _, truncated = await self._call_llm(tool_context_text)
                 input_tokens += followup_in
                 output_tokens += followup_out
                 tokens_used += followup_tot
                 latency_ms += int((time.perf_counter() - followup_start) * 1000)
-                parsed = response_parser.parse(raw_response, self.agent_id.value)
+                parsed = response_parser.parse(raw_response, self.agent_id.value, truncated=truncated)
             except Exception as e:
                 logger.error(f"Tool follow-up LLM call failed: {e}")
 
@@ -189,32 +207,7 @@ class AgentRuntime:
             }
         )
 
-        # Save to SQLite database for auditing and history
-        try:
-            from data.database import db
-            await db.execute_write(
-                """
-                INSERT INTO agent_messages (
-                    id, agent_id, content, triggered_by, call_priority, tokens_used, input_tokens, output_tokens, model_used, debug, latency_ms, timestamp
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-                """,
-                (
-                    message.id,
-                    message.agent_id.value,
-                    message.content,
-                    message.triggered_by.value if message.triggered_by else None,
-                    message.call_priority.value,
-                    message.tokens_used,
-                    message.input_tokens,
-                    message.output_tokens,
-                    message.model_used,
-                    json.dumps(message.debug),
-                    message.latency_ms,
-                )
-            )
-            logger.debug(f"AgentRuntime[{self.agent_id.value}]: Saved message to database.")
-        except Exception as e:
-            logger.warning(f"Failed to save agent message to database: {e}")
+        await self._persist(message)
 
         # 7. Save to session memory
         self._session.add(message)
@@ -225,7 +218,7 @@ class AgentRuntime:
             logger.info(f"AgentRuntime[{self.agent_id.value}]: Session buffer full — consolidating.")
             try:
                 await memory_summarizer.consolidate_session(
-                    self._session, self._client
+                    self._session, self._client, model=settings.gemini_model_light
                 )
             except Exception as e:
                 logger.warning(f"Memory consolidation failed: {e}")
@@ -242,12 +235,20 @@ class AgentRuntime:
     # LLM CALL
     # ------------------------------------------------------------------
 
-    async def _call_llm(self, context: str) -> tuple[str, int, int, int, str]:
-        """Make the async Gemini API call. Returns (text, input_tokens, output_tokens, total_tokens, model)."""
-        model = self._config.get("model", "gemini-2.5-flash-preview-05-20")
+    async def _call_llm(self, context: str) -> tuple[str, int, int, int, str, bool]:
+        """Make the async Gemini API call.
+        Returns (text, input_tokens, output_tokens, total_tokens, model, truncated)."""
+        model = self.model_name
         system_prompt = self._config.get("system_prompt", "")
         temperature = float(self._config.get("temperature", 1.0))
-        max_tokens = int(self._config.get("max_output_tokens", 400))
+        max_tokens = int(self._config.get("max_output_tokens", 300))
+
+        # Gemini 2.5 Flash "thinks" by default and thinking tokens count against
+        # max_output_tokens, which can cut a short reply off mid-sentence. Short
+        # coaching replies don't need it, so the budget defaults to 0 (off).
+        thinking = None
+        if "2.5-flash" in model and settings.gemini_thinking_budget >= 0:
+            thinking = genai_types.ThinkingConfig(thinking_budget=settings.gemini_thinking_budget)
 
         response = await self._client.aio.models.generate_content(
             model=model,
@@ -256,8 +257,18 @@ class AgentRuntime:
                 system_instruction=system_prompt,
                 temperature=temperature,
                 max_output_tokens=max_tokens,
+                thinking_config=thinking,
             ),
         )
+
+        truncated = False
+        try:
+            reason = response.candidates[0].finish_reason if response.candidates else None
+            truncated = reason == genai_types.FinishReason.MAX_TOKENS
+        except Exception:
+            pass
+        if truncated:
+            logger.warning(f"AgentRuntime[{self.agent_id.value}]: reply hit max_output_tokens ({max_tokens}).")
 
         in_tokens = 0
         out_tokens = 0
@@ -267,7 +278,59 @@ class AgentRuntime:
             out_tokens = response.usage_metadata.candidates_token_count or 0
             tot_tokens = response.usage_metadata.total_token_count or 0
 
-        return response.text or "", in_tokens, out_tokens, tot_tokens, model
+        return response.text or "", in_tokens, out_tokens, tot_tokens, model, truncated
+
+    # ------------------------------------------------------------------
+    # SAMPLE MODE + PERSISTENCE
+    # ------------------------------------------------------------------
+
+    async def _sample(self, triggered_by: EventType, reason: str, payload: Optional[dict]) -> AgentMessage:
+        """A pre-written reply in this coach's style, filled only with facts the session has."""
+        from agents.sample_replies import gather_facts, pick
+        facts = await gather_facts(payload)
+        message = AgentMessage(
+            agent_id=self.agent_id,
+            content=pick(self.agent_id.value, triggered_by.value if triggered_by else "user_direct_message", facts),
+            triggered_by=triggered_by,
+            model_used="sample",
+            is_sample=True,
+            sample_reason=reason,
+        )
+        await self._persist(message)
+        self._last_invocation = time.time()   # samples respect cooldowns too
+        logger.info(f"AgentRuntime[{self.agent_id.value}]: sample reply ({reason}).")
+        return message
+
+    async def _persist(self, message: AgentMessage) -> None:
+        """Save to SQLite for history, nudges and token auditing."""
+        import json
+        try:
+            from data.database import db
+            await db.execute_write(
+                """
+                INSERT INTO agent_messages (
+                    id, agent_id, content, triggered_by, call_priority, tokens_used, input_tokens,
+                    output_tokens, model_used, debug, latency_ms, is_sample, sample_reason, timestamp
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                """,
+                (
+                    message.id,
+                    message.agent_id.value,
+                    message.content,
+                    message.triggered_by.value if message.triggered_by else None,
+                    message.call_priority.value,
+                    message.tokens_used,
+                    message.input_tokens,
+                    message.output_tokens,
+                    message.model_used,
+                    json.dumps(message.debug),
+                    message.latency_ms,
+                    int(message.is_sample),
+                    message.sample_reason,
+                ),
+            )
+        except Exception as e:
+            logger.warning(f"Failed to save agent message to database: {e}")
 
     # ------------------------------------------------------------------
     # TOOL EXECUTION
@@ -312,12 +375,20 @@ class AgentRuntime:
     async def end_session(self) -> None:
         """Consolidate and clear the session. Call at end of day."""
         if self._initialized and self._client:
-            await memory_summarizer.consolidate_session(self._session, self._client)
+            await memory_summarizer.consolidate_session(
+                self._session, self._client, model=settings.gemini_model_light
+            )
         self._session.clear()
 
     def is_ready(self) -> bool:
         """True if initialized and cooldown has passed."""
         return self._initialized and self._check_cooldown()
+
+    @property
+    def model_name(self) -> str:
+        """Model resolved from the persona's `model_tier` and the env-configured names."""
+        tier = self._config.get("model_tier") if self._config else None
+        return settings.model_for_tier(tier)
 
     @property
     def display_name(self) -> str:

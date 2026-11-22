@@ -1,0 +1,5 @@
+A1 Alertness at 09:30, only the 08-09 task is past & completed, slider untouched (default slider_val=100): 0.0
+A2 Same day at 19:30 (all tasks past, only first completed): 0.0
+D1 Discipline at 10:00 with a 22:00-06:00 sleep block not yet begun + one started past task: 100.0
+D2 sleep.is_past_at(10:00) = False | sleep.is_current_at(23:00) = n/a
+AU1 Aura streak=0: 0.0 | streak=1: 0.6576 | disc=0: 0.0

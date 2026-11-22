@@ -1,0 +1,9 @@
+A: demo panel visible: true
+A: progress text: 7/12 tasks · 58%
+A: Aura card: 7d consistency streak · Info
+A: complete-task result: Completed 'Exercise or a walk'. No coach reply: live AI isn't available right now.
+A: progress 7/12 tasks · 58% -> 8/12 tasks · 67%
+B: progress text (should equal A before): 7/12 tasks · 58%
+A after reset: 7/12 tasks · 58%
+A analytics shows charts (no "No data yet"): true
+page errors: none

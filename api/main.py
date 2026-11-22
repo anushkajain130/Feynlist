@@ -20,8 +20,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from loguru import logger
 
+from api.session_middleware import SessionMiddleware
+from config.settings import settings
 from core.startup import startup, shutdown
-from api.routers import tasks, analytics, agents
+from api.routers import tasks, analytics, agents, demo
 from api.schemas import HealthResponse, ErrorResponse
 from notifications.scheduler import scheduler
 from agents.orchestrator import orchestrator
@@ -56,14 +58,17 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS — allow all origins for local development
-# In production, restrict to your frontend domain
+# Session + time zone context (innermost, so CORS headers wrap its responses too)
+app.add_middleware(SessionMiddleware)
+
+# CORS: ALLOWED_ORIGINS (comma-separated) in production, "*" for local dev.
+# No cookies are used, so credentials are not allowed.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=settings.allowed_origin_list or ["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "X-Feynlist-Session", "X-Feynlist-TZ"],
 )
 
 
@@ -74,6 +79,7 @@ app.add_middleware(
 app.include_router(tasks.router)
 app.include_router(analytics.router)
 app.include_router(agents.router)
+app.include_router(demo.router)
 
 
 # =============================================================================
@@ -110,12 +116,13 @@ async def health_check():
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    logger.error(f"Unhandled exception on {request.url}: {exc}")
+    # Full detail goes to the server log only; clients get a generic message.
+    logger.exception(f"Unhandled exception on {request.url.path}: {exc}")
     return JSONResponse(
         status_code=500,
         content=ErrorResponse(
             error="Internal server error",
-            detail=str(exc),
+            detail="Something went wrong on the server. Please try again.",
             code=500,
         ).model_dump(),
     )

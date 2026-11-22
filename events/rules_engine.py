@@ -50,6 +50,9 @@ class RulesEngine:
         self._rules: list[Rule] = []
 
     def register(self, rule: Rule) -> None:
+        # Idempotent: re-registering a rule with the same name replaces it, so
+        # calling startup twice can never make an event dispatch twice.
+        self._rules = [r for r in self._rules if r.name != rule.name]
         self._rules.append(rule)
         self._rules.sort(key=lambda r: r.priority, reverse=True)
         logger.debug(f"RulesEngine: registered rule '{rule.name}' for {rule.event_type.value}")
@@ -127,7 +130,7 @@ def register_default_rules(orchestrator) -> None:
         description="Freya responds when a task is missed.",
     ))
 
-    # Rule: Streak broken → Anya + Mohini respond
+    # Rule: Streak broken → Anya responds
     rules_engine.register(Rule(
         name="streak_broken_anya",
         event_type=EventType.STREAK_BROKEN,
@@ -167,14 +170,34 @@ def register_default_rules(orchestrator) -> None:
         description="ZeroTwo reviews performance at scheduled intervals.",
     ))
 
-    # Rule: Low energy → Mohini assesses
+    # Rule: Day start → Freya looks at the day's plan
     rules_engine.register(Rule(
-        name="low_energy_mohini",
-        event_type=EventType.LOW_ENERGY_DETECTED,
+        name="day_start_freya",
+        event_type=EventType.DAY_START,
         condition=lambda e: True,
         action=lambda e: orchestrator.dispatch(e),
-        priority=7,
-        description="Mohini assesses energy imbalance.",
+        priority=5,
+        description="Freya opens the day.",
+    ))
+
+    # Rule: End of day → Anya gives a short review
+    rules_engine.register(Rule(
+        name="day_end_review_anya",
+        event_type=EventType.DAY_END_REVIEW,
+        condition=lambda e: True,
+        action=lambda e: orchestrator.dispatch(e),
+        priority=6,
+        description="Anya reviews the day.",
+    ))
+
+    # Rule: Streak milestone → Albedo celebrates
+    rules_engine.register(Rule(
+        name="streak_milestone_albedo",
+        event_type=EventType.STREAK_MILESTONE,
+        condition=lambda e: True,
+        action=lambda e: orchestrator.dispatch(e),
+        priority=5,
+        description="Albedo celebrates a streak milestone.",
     ))
 
     # Rule: User direct message → route based on @mention or default

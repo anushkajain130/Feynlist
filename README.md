@@ -1,111 +1,110 @@
-***
-
 # Feynlist
 
-Feynlist is a professional-grade, AI-powered productivity operating system. It integrates an event-driven architecture with a multi-agent framework to provide automated task management, deep performance analytics, and behavioral coaching. The system leverages the Google Gemini API to orchestrate five specialized AI personas that monitor user progress and provide contextual interventions.
+An accountability-first day planner. You plan your day in time blocks, mark each one as you go, see how you actually did, and get short coaching from five AI personas ("The Council").
 
-## Core System Architecture
+**Loop:** plan → work → track → reflect → get relevant accountability → plan the next day better.
 
-The repository is built on a modular, decoupled architecture consisting of several key layers:
+## What it does
 
-*   **Multi-Agent Orchestrator:** Manages the lifecycle and interaction flow of the Council of Agents, enforcing global cooldowns and sequential response patterns.
-*   **Event-Driven Rules Engine:** Monitors system events such as task completions, missed deadlines, and productivity spikes to trigger specific agent behaviors.
-*   **Hybrid Memory Layer:** Combines in-process short-term session memory with an asynchronous SQLite long-term storage system. It includes an LLM-powered summarization pipeline to condense session data into behavioral insights.
-*   **Modular Tool Registry:** Provides agents with secure, typed interfaces to interact with system data, including task repositories, analytics trends, and memory retrieval.
-*   **Stateless Analytics Pipeline:** Computes daily metrics using Exponential Weighted Moving Averages (EWMA) and composite scoring algorithms.
+- **Plan** the day as time blocks (Study, Class, Project / Work, Reading, Wellness, Break, Sleep). Blocks may cross midnight (e.g. Sleep 23:00–07:00).
+- **Track** each block with three marks, which give its points:
+  - Start & Sit: 50%
+  - Complete: 30%
+  - Be Attentive: 20%, scaled by your focus rating
+- **See progress:**
+  - **Discipline:** share of finished blocks you started.
+  - **Alertness:** focus on the blocks you rated.
+  - **Study hours.**
+  - **Consistency streak:** days you checked in "Yes" or finished at least 50% of your plan.
+  - **Aura:** a simple momentum score; the formula is shown in the app.
+  - 14-day charts.
+  - A **workload signal:** a rule-based heuristic, not a medical assessment.
+- **Get coaching** from five personas with different styles:
 
-## The Council of Agents
-
-The system features five distinct AI personas, each defined by unique YAML configurations and specific operational scopes:
-
-| Agent | Identity | Primary Trigger Scope |
+| Coach | Style | Speaks on its own when |
 | :--- | :--- | :--- |
-| **Freya** | The Truth-Teller | Day starts, missed tasks, direct user inquiries. |
-| **Anya** | The Anchor | Burnout detection, broken streaks, emotional support. |
-| **ZeroTwo** | The Strategist | Weekly reviews, performance drops, metric optimization. |
-| **Albedo** | The Provocateur | Task completions, high scores, streak milestones. |
-| **Mohini** | The Spiritual Guide | Inactivity detection, energy management, wellness. |
+| Freya | Direct and honest | A task is missed; the day starts |
+| Anya | Warm, rest-aware | Workload signal is moderate/severe; streak breaks; end-of-day review |
+| ZeroTwo | Analytical | Scheduled check-in |
+| Albedo | Playful celebrator | A task is completed; streak milestone |
+| Mohini | Calm, energy-focused | Only when you message her |
 
-## Technical Specification
+All five reply when you message them directly. "Hi council" asks all five at once.
 
-### Backend and Database
-*   **Language:** Python 3.13+
-*   **Framework:** FastAPI for REST and WebSocket communication.
-*   **Database:** Asynchronous SQLite (aiosqlite) with automated SQL migrations.
-*   **Scheduling:** APScheduler for background analytics and periodic event triggers.
+### Live AI vs. sample replies (free-tier budget)
 
-### AI and Data
-*   **Inference:** Google Gemini 2.5 Pro and Flash models.
-*   **Validation:** Pydantic V2 for all internal data structures and API schemas.
-*   **Logging:** Structured logging via Loguru.
-*   **Migration:** Automated migration scripts for transitioning legacy CSV data into structured SQLite.
+The Council is designed to run live: all five personas, plus proactive nudges. The public demo runs on a free Gemini key, so it limits live replies:
 
-## Performance Metrics
+- **2 live replies per browser session.** Chat and demo controls count together.
+- **A global daily cap** (`LIVE_AI_DAILY_CAP`) and a per-minute guard.
+- **Always samples:** "Council" (all five at once) and automatic nudges.
+- **No scheduled model calls.** They run only with `ENABLE_PROACTIVE_LLM=true`, for local use.
 
-Feynlist utilizes a proprietary scoring system to evaluate productivity:
+Everything else, and every case where the AI is unavailable (no key, quota, error), is shown as a **pre-written sample reply**. It is always labelled "Sample reply (pre-written, not live)" and uses only the session's real numbers.
 
-1.  **Discipline:** A percentage-based metric tracking the consistent initiation of scheduled tasks.
-2.  **Alertness:** A focus-quality metric derived from user-reported attention levels relative to task difficulty.
-3.  **Aura:** A composite momentum score calculated as: `sqrt(Discipline) * sqrt(PS_Hours/Target) * log(1 + Streak)`.
-4.  **Retention Streak:** A count of consecutive days maintained without a reset event.
+### Demo mode (for evaluators)
 
-## Installation and Deployment
+With `DEMO_MODE=true`, each browser session gets its own temporary database:
 
-### 1. Environment Setup
-Clone the repository and install the package dependencies:
+- **Sample data:** about two weeks of made-up history, labelled in the UI.
+- **Separate per evaluator:** nobody sees anyone else's session.
+- **Browser timezone:** "today" and "missed" follow the evaluator's clock.
+- **"How to evaluate in 3 minutes":** a panel on the first screen.
+- **Demo controls:** fire the real proactive paths immediately, with cooldowns bypassed and labelled:
+  - missed task → Freya
+  - complete a task → Albedo
+  - end of day → Anya
+  - check-in → ZeroTwo
+  - load sample history
+  - reset
+
+## Run it locally
+
+Backend (Python 3.11+):
 
 ```bash
-git clone https://github.com/your-username/feynlist.git
-cd feynlist
-pip install .
+python -m venv .venv && . .venv/bin/activate
+pip install ".[dev]"
+cp .env.example .env        # add GEMINI_API_KEY to use live AI replies (optional)
+uvicorn api.main:app --port 8000
 ```
 
-### 2. Configuration
-Create a `.env` file in the project root. Refer to `.env.example` for the full list of required variables:
+Frontend (Node 20+):
+
+```bash
+cd frontend
+npm ci
+npm run dev                 # http://localhost:3000 (uses NEXT_PUBLIC_API_URL, default http://localhost:8000)
+```
+
+Without a Gemini key, the planner, tracking and analytics all work, and the Council answers with labelled sample replies. For full local use (live nudges on a timer), set `ENABLE_PROACTIVE_LLM=true`. To try the evaluator experience locally, set `DEMO_MODE=true`.
+
+## How to evaluate
+
+- `python -m pytest`: unit and API tests (temporary databases, no AI calls).
+- `python -m scripts.smoke_test`: end-to-end check on a throwaway database. It reports PASS/FAIL/SKIP honestly.
+- `evals/EVALS.md`: every test that was run, with real output and evidence (`evals/evidence/`), plus what is still unverified.
+- `prompts/PROMPTS.md`: the persona/system prompts and the prompts used to improve this project.
+
+## Known limits
+
+- **Self-reported, not measured.** Scores reflect what you mark. The workload signal is a heuristic.
+- **Personas untested against a live model.** Their prompts have only been checked statically (see `evals/EVALS.md`).
+- **No accounts.** Outside demo mode there is one local SQLite database. In demo mode, data is per browser session and temporary.
+- **AI uses Google's Gemini API.** Free-tier content may be used by Google to improve its products, so don't enter personal information.
+
+## Project layout
 
 ```text
-GEMINI_API_KEY=your_api_key_here
-DATABASE_PATH=feynlist.db
-LOG_LEVEL=INFO
+agents/         persona YAML, agent runtime, orchestrator
+analytics/      metrics, trends, analytics pipeline
+api/            FastAPI app and routers
+config/         settings (env vars)
+core/           models and exceptions
+data/           SQLite access and migrations
+events/         event bus and rules
+memory/         short-term and long-term memory
+notifications/  scheduler and event emitters
+tools/          tools the agents may call
+frontend/       Next.js app
 ```
-
-### 3. Database Initialization
-Run the migration script to initialize the SQLite schema and import historical data:
-
-```bash
-python scripts/migrate_csv_to_sqlite.py
-```
-
-### 4. Running the API
-Start the FastAPI server using Uvicorn:
-
-```bash
-uvicorn api.main:app --host 0.0.0.0 --port 8000
-```
-
-## Project Structure
-
-```text
-feynlist/
-├── agents/             # Persona configurations and LLM runtimes
-├── analytics/          # Metric computation and trend analysis
-├── api/                # FastAPI routers and Pydantic schemas
-├── config/             # Global settings and environment management
-├── core/               # Domain models and exception definitions
-├── data/               # Repositories and SQL migration files
-├── events/             # Event bus and rules engine logic
-├── memory/             # Long-term storage and session consolidation
-├── notifications/      # Background scheduler and event triggers
-└── tools/              # Modular functions accessible by AI agents
-```
-
-## API Documentation
-
-Once the server is running, interactive documentation is available at the following endpoints:
-
-*   **Swagger UI:** `http://localhost:8000/docs`
-*   **ReDoc:** `http://localhost:8000/redoc`
-
-## License
-
-This project is licensed under the MIT License. See the LICENSE file for details.

@@ -64,7 +64,7 @@ class MemorySummarizer:
         self,
         session: SessionMemory,
         llm_client=None,  # google.genai.Client — injected to avoid circular import
-        model: str = "gemini-2.5-flash-lite-preview-06-17",
+        model: str | None = None,  # defaults to GEMINI_MODEL_LIGHT
     ) -> list[MemoryEntry]:
         """
         Summarize a session's short-term memory into long-term entries.
@@ -77,6 +77,9 @@ class MemorySummarizer:
             return []
 
         session_text = session.to_consolidation_text()
+        if model is None:
+            from config.settings import settings
+            model = settings.gemini_model_light
 
         # Try LLM-based extraction first
         if llm_client is not None:

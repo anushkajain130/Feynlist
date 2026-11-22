@@ -1,0 +1,76 @@
+<repo>/.venv/lib/python3.13/site-packages/pytest_asyncio/plugin.py:306: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
+The event loop scope for asynchronous fixtures will default to the fixture scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to "function" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session". Set it to "fixture-scope" to keep the current behavior.
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
+============================= test session starts ==============================
+platform linux -- Python 3.13.18, pytest-9.2.0, pluggy-1.7.0 -- <repo>/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: <repo>
+configfile: pyproject.toml
+testpaths: tests
+plugins: asyncio-1.5.0, anyio-4.16.0, cov-7.1.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 60 items
+
+tests/unit/test_memory.py::TestSessionMemory::test_add_and_retrieve PASSED [  1%]
+tests/unit/test_memory.py::TestSessionMemory::test_max_size_enforcement PASSED [  3%]
+tests/unit/test_memory.py::TestSessionMemory::test_get_recent_n PASSED   [  5%]
+tests/unit/test_memory.py::TestSessionMemory::test_clear PASSED          [  6%]
+tests/unit/test_memory.py::TestSessionMemory::test_is_full PASSED        [  8%]
+tests/unit/test_memory.py::TestSessionMemory::test_format_for_prompt PASSED [ 10%]
+tests/unit/test_memory.py::TestSessionMemory::test_format_empty PASSED   [ 11%]
+tests/unit/test_memory.py::TestSessionMemory::test_format_truncates_long_messages PASSED [ 13%]
+tests/unit/test_memory.py::TestSessionMemory::test_consolidation_text PASSED [ 15%]
+tests/unit/test_memory.py::TestMemoryRetriever::test_recency_score_recent_high PASSED [ 16%]
+tests/unit/test_memory.py::TestMemoryRetriever::test_recency_score_old_low PASSED [ 18%]
+tests/unit/test_memory.py::TestMemoryRetriever::test_recency_score_decay PASSED [ 20%]
+tests/unit/test_memory.py::TestMemoryRetriever::test_relevance_perfect_match PASSED [ 21%]
+tests/unit/test_memory.py::TestMemoryRetriever::test_relevance_no_match PASSED [ 23%]
+tests/unit/test_memory.py::TestMemoryRetriever::test_relevance_partial_match PASSED [ 25%]
+tests/unit/test_memory.py::TestMemoryRetriever::test_relevance_no_query_neutral PASSED [ 26%]
+tests/unit/test_memory.py::TestMemoryRetriever::test_score_composite PASSED [ 28%]
+tests/unit/test_memory.py::TestMemoryRetriever::test_score_old_low_importance_irrelevant PASSED [ 30%]
+tests/unit/test_memory.py::TestMemoryRetriever::test_format_for_prompt PASSED [ 31%]
+tests/unit/test_memory.py::TestMemoryRetriever::test_format_empty PASSED [ 33%]
+tests/unit/test_memory.py::TestMemoryRetriever::test_format_truncates_long_content PASSED [ 35%]
+tests/unit/test_metrics.py::TestAlertnessMetric::test_zero_with_no_completed_tasks PASSED [ 36%]
+tests/unit/test_metrics.py::TestAlertnessMetric::test_full_score_perfect_slider PASSED [ 38%]
+tests/unit/test_metrics.py::TestAlertnessMetric::test_partial_score PASSED [ 40%]
+tests/unit/test_metrics.py::TestAlertnessMetric::test_uncompleted_tasks_excluded_from_numerator PASSED [ 41%]
+tests/unit/test_metrics.py::TestAlertnessMetric::test_ewm_with_yesterday PASSED [ 43%]
+tests/unit/test_metrics.py::TestDisciplineMetric::test_zero_no_past_tasks PASSED [ 45%]
+tests/unit/test_metrics.py::TestDisciplineMetric::test_full_discipline_all_started PASSED [ 46%]
+tests/unit/test_metrics.py::TestDisciplineMetric::test_half_discipline PASSED [ 48%]
+tests/unit/test_metrics.py::TestDisciplineMetric::test_ewm_with_yesterday PASSED [ 50%]
+tests/unit/test_metrics.py::TestPSHoursMetric::test_only_selfstudy_with_complete PASSED [ 51%]
+tests/unit/test_metrics.py::TestPSHoursMetric::test_incomplete_selfstudy_excluded PASSED [ 53%]
+tests/unit/test_metrics.py::TestPSHoursMetric::test_zero_with_no_selfstudy PASSED [ 55%]
+tests/unit/test_metrics.py::TestPSHoursMetric::test_auto_calculate_ps_var_for_academics_selfstudy PASSED [ 56%]
+tests/unit/test_metrics.py::TestAuraMetric::test_zero_streak_not_zero_aura PASSED [ 58%]
+tests/unit/test_metrics.py::TestAuraMetric::test_growing_streak_increases_aura PASSED [ 60%]
+tests/unit/test_metrics.py::TestAuraMetric::test_zero_discipline_zeroes_aura PASSED [ 61%]
+tests/unit/test_metrics.py::TestAuraMetric::test_formula_correctness PASSED [ 63%]
+tests/unit/test_metrics.py::TestRetentionStreakMetric::test_clean_day_increments_streak PASSED [ 65%]
+tests/unit/test_metrics.py::TestRetentionStreakMetric::test_break_event_resets_streak PASSED [ 66%]
+tests/unit/test_metrics.py::TestPointsMetric::test_all_subtasks_complete PASSED [ 68%]
+tests/unit/test_metrics.py::TestPointsMetric::test_only_start_and_sit PASSED [ 70%]
+tests/unit/test_metrics.py::TestPointsMetric::test_no_subtasks_zero_points PASSED [ 71%]
+tests/unit/test_metrics.py::TestPointsMetric::test_total_points_multiple_tasks PASSED [ 73%]
+tests/unit/test_tools.py::TestToolRegistry::test_register_and_get PASSED [ 75%]
+tests/unit/test_tools.py::TestToolRegistry::test_get_unknown_raises PASSED [ 76%]
+tests/unit/test_tools.py::TestToolRegistry::test_list_all PASSED         [ 78%]
+tests/unit/test_tools.py::TestToolRegistry::test_get_for_agent_filtered PASSED [ 80%]
+tests/unit/test_tools.py::TestToolRegistry::test_get_for_agent_unrestricted PASSED [ 81%]
+tests/unit/test_tools.py::TestToolPermissions::test_permission_denied_returns_failure PASSED [ 83%]
+tests/unit/test_tools.py::TestToolPermissions::test_permission_granted PASSED [ 85%]
+tests/unit/test_tools.py::TestGetCurrentTasksTool::test_empty_day PASSED [ 86%]
+tests/unit/test_tools.py::TestGetCurrentTasksTool::test_completion_percentage PASSED [ 88%]
+tests/unit/test_tools.py::TestGetMissedTasksTool::test_identifies_missed_tasks PASSED [ 90%]
+tests/unit/test_tools.py::TestGetMissedTasksTool::test_deviated_not_counted_as_missed PASSED [ 91%]
+tests/unit/test_tools.py::TestStoreMemoryTool::test_store_creates_entry PASSED [ 93%]
+tests/unit/test_tools.py::TestStoreMemoryTool::test_store_invalid_type_fallback PASSED [ 95%]
+tests/unit/test_tools.py::TestRetrieveMemoryTool::test_returns_formatted_results PASSED [ 96%]
+tests/unit/test_tools.py::TestInputValidation::test_invalid_date_format_fails_gracefully PASSED [ 98%]
+tests/unit/test_tools.py::TestInputValidation::test_importance_out_of_range PASSED [100%]
+
+============================== 60 passed in 0.40s ==============================

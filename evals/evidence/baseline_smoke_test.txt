@@ -1,0 +1,25 @@
+2026-11-21 20:36:00.442 +00:00 | INFO     | __main__:run_smoke_test:127 - 
+[5/5] Event bus + rules engine wiring...
+2026-11-21 20:36:00.443 +00:00 | INFO     | agents.orchestrator:initialize:82 - Orchestrator: initializing all agent runtimes...
+2026-11-21 20:36:00.449 +00:00 | WARNING  | agents.orchestrator:initialize:94 - Orchestrator: freya failed to init: No API key found. Set GEMINI_API_KEY or GOOGLE_API_KEY in your .env file.
+2026-11-21 20:36:00.449 +00:00 | WARNING  | agents.orchestrator:initialize:94 - Orchestrator: albedo failed to init: No API key found. Set GEMINI_API_KEY or GOOGLE_API_KEY in your .env file.
+2026-11-21 20:36:00.449 +00:00 | WARNING  | agents.orchestrator:initialize:94 - Orchestrator: anya failed to init: No API key found. Set GEMINI_API_KEY or GOOGLE_API_KEY in your .env file.
+2026-11-21 20:36:00.449 +00:00 | WARNING  | agents.orchestrator:initialize:94 - Orchestrator: zerotwo failed to init: No API key found. Set GEMINI_API_KEY or GOOGLE_API_KEY in your .env file.
+2026-11-21 20:36:00.449 +00:00 | WARNING  | agents.orchestrator:initialize:94 - Orchestrator: mohini failed to init: No API key found. Set GEMINI_API_KEY or GOOGLE_API_KEY in your .env file.
+2026-11-21 20:36:00.449 +00:00 | ERROR    | agents.orchestrator:initialize:96 - Orchestrator: ALL agent runtimes failed to initialize.
+2026-11-21 20:36:00.449 +00:00 | INFO     | agents.orchestrator:initialize:102 - Orchestrator: 0/5 runtimes ready.
+2026-11-21 20:36:00.470 +00:00 | INFO     | events.rules_engine:register_default_rules:190 - RulesEngine: 7 default rules registered.
+2026-11-21 20:36:00.470 +00:00 | INFO     | __main__:run_smoke_test:139 -   ✅ 7 rules registered
+2026-11-21 20:36:00.470 +00:00 | INFO     | __main__:run_smoke_test:144 - 
+============================================================
+2026-11-21 20:36:00.470 +00:00 | INFO     | __main__:run_smoke_test:145 - SMOKE TEST RESULTS
+2026-11-21 20:36:00.470 +00:00 | INFO     | __main__:run_smoke_test:146 - ============================================================
+2026-11-21 20:36:00.470 +00:00 | INFO     | __main__:run_smoke_test:157 -   ❌ db_tasks_loaded: 0
+2026-11-21 20:36:00.470 +00:00 | INFO     | __main__:run_smoke_test:157 -   ✅ analytics_ok: True
+2026-11-21 20:36:00.471 +00:00 | INFO     | __main__:run_smoke_test:157 -   ✅ tool_registry_ok: True
+2026-11-21 20:36:00.471 +00:00 | INFO     | __main__:run_smoke_test:157 -   ✅ llm_call_ok: SKIPPED (no API key)
+2026-11-21 20:36:00.471 +00:00 | INFO     | __main__:run_smoke_test:157 -   ❌ response_chars: 0
+2026-11-21 20:36:00.471 +00:00 | INFO     | __main__:run_smoke_test:157 -   ✅ rules_registered: 7
+2026-11-21 20:36:00.471 +00:00 | INFO     | __main__:run_smoke_test:159 - ============================================================
+2026-11-21 20:36:00.471 +00:00 | INFO     | __main__:run_smoke_test:161 - 🎉 ALL CHECKS PASSED — System is operational
+2026-11-21 20:36:00.471 +00:00 | INFO     | __main__:run_smoke_test:164 - ============================================================

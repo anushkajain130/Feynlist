@@ -1,0 +1,44 @@
+# Render Blueprint for the Feynlist backend (FastAPI + SQLite, free plan).
+# Render dashboard → New → Blueprint → pick this repo. See DEPLOY.md.
+services:
+  - type: web
+    name: feynlist-api
+    runtime: python
+    plan: free
+    # Python version comes from .python-version (3.12; tested 3.11 and 3.12).
+    buildCommand: pip install .
+    startCommand: uvicorn api.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      # --- secrets / per-deploy values: Render asks you for these ---
+      - key: GEMINI_API_KEY          # your free Gemini key (typed into Render only)
+        sync: false
+      - key: ALLOWED_ORIGINS         # your Vercel URL, e.g. https://feynlist.vercel.app
+        sync: false
+      # --- public demo settings ---
+      - key: DEMO_MODE
+        value: "true"
+      - key: ENABLE_PROACTIVE_LLM
+        value: "false"
+      - key: LIVE_REPLIES_PER_SESSION
+        value: "2"
+      - key: LIVE_AI_DAILY_CAP       # keep BELOW your AI Studio daily request limit
+        value: "20"
+      - key: LIVE_AI_PER_MINUTE
+        value: "8"
+      - key: GEMINI_MODEL_STANDARD
+        value: gemini-2.5-flash
+      - key: GEMINI_MODEL_LIGHT
+        value: gemini-2.5-flash-lite
+      - key: GEMINI_THINKING_BUDGET
+        value: "0"
+      # --- storage: temporary disk is fine for the demo (resets on restart) ---
+      - key: DATABASE_PATH
+        value: /tmp/feynlist/feynlist.db
+      - key: DEMO_DATA_DIR
+        value: /tmp/feynlist-demo
+      - key: AI_BUDGET_PATH
+        value: /tmp/feynlist-demo/ai_budget.db
+      - key: LOG_FILE
+        value: /tmp/feynlist/feynlist.log

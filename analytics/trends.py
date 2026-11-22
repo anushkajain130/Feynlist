@@ -24,6 +24,7 @@ from loguru import logger
 from core.models import DailyMetrics
 from data.repositories.analytics_repo import analytics_repo
 from data.repositories.task_repo import task_repo
+from core import clock
 
 
 # =============================================================================
@@ -99,7 +100,7 @@ class TrendAnalyzer:
             end_date: Defaults to today
         """
         if end_date is None:
-            end_date = date.today()
+            end_date = clock.today()
         start_date = end_date - timedelta(days=days - 1)
 
         records = await analytics_repo.get_metrics_for_range(start_date, end_date)
@@ -191,7 +192,7 @@ class TrendAnalyzer:
         Returns a dict mapping hour → avg_points_per_active_day.
         Used to render a 24-hour heatmap in the UI.
         """
-        end = date.today()
+        end = clock.today()
         start = end - timedelta(days=lookback_days)
 
         hourly_data: dict[int, list[int]] = {h: [] for h in range(24)}
@@ -257,7 +258,7 @@ class TrendAnalyzer:
         - Days where discipline < 30% (poor start rate)
         - Time-of-day clustering of deviations
         """
-        end = date.today()
+        end = clock.today()
         start = end - timedelta(days=lookback_days)
 
         low_discipline_days: list[date] = []
@@ -363,12 +364,15 @@ class TrendAnalyzer:
             if low_aura_streak >= 7:
                 factors.append("Aura below 1.0 for 7+ consecutive days")
 
-        # Signal 4: High discipline, low alertness (exhaustion pattern)
-        recent = records[-5:]
-        avg_disc = sum(r.discipline for r in recent) / len(recent)
-        avg_alert = sum(r.alertness for r in recent) / len(recent)
-        if avg_disc > 70 and avg_alert < 30:
-            factors.append("High effort but low focus — possible mental exhaustion")
+        # Signal 4: High discipline, low alertness (exhaustion pattern).
+        # Alertness 0.0 means "no attention ratings that day", so those days are
+        # skipped; at least 3 rated days are needed.
+        recent = [r for r in records[-5:] if r.alertness > 0]
+        if len(recent) >= 3:
+            avg_disc = sum(r.discipline for r in recent) / len(recent)
+            avg_alert = sum(r.alertness for r in recent) / len(recent)
+            if avg_disc > 70 and avg_alert < 30:
+                factors.append("High effort but low focus — possible mental exhaustion")
 
         # Determine severity
         if len(factors) == 0:
@@ -403,7 +407,7 @@ class TrendAnalyzer:
         Defaults to the most recent full week (Mon–Sun).
         """
         if week_start is None:
-            today = date.today()
+            today = clock.today()
             # Go back to last Monday
             week_start = today - timedelta(days=today.weekday())
 
@@ -448,16 +452,26 @@ class TrendAnalyzer:
     # PERCENTILE RANKING
     # ------------------------------------------------------------------
 
-    async def get_percentile(self, metric: str, value: float) -> float:
+    # A percentile against a handful of days is meaningless ("top 0% of your days").
+    MIN_DAYS_FOR_PERCENTILE = 14
+
+    async def history_days(self) -> int:
+        """Number of days with recorded activity."""
+        records = await analytics_repo.get_metrics_for_range(date(2024, 1, 1), clock.today())
+        return sum(1 for r in records if r.tasks_total > 0)
+
+    async def get_percentile(self, metric: str, value: float) -> float | None:
         """
-        Returns what percentile the given value is in,
-        relative to all historical records for that metric.
+        Returns what percentile the given value is in, relative to all historical
+        records for that metric, or None if there are fewer than
+        MIN_DAYS_FOR_PERCENTILE days of history.
         """
         records = await analytics_repo.get_metrics_for_range(
-            date(2024, 1, 1), date.today()
+            date(2024, 1, 1), clock.today()
         )
-        if not records:
-            return 0.0
+        records = [r for r in records if r.tasks_total > 0]
+        if len(records) < self.MIN_DAYS_FOR_PERCENTILE:
+            return None
 
         all_values = sorted(getattr(r, metric, 0.0) for r in records)
         rank = sum(1 for v in all_values if v <= value)
@@ -515,6 +529,13 @@ class TrendAnalyzer:
 
         disc_pct = await self.get_percentile("discipline", target_metrics.discipline)
         aura_pct = await self.get_percentile("aura", target_metrics.aura)
+        if disc_pct is None or aura_pct is None:
+            return {
+                "date": target_date.isoformat(),
+                "has_data": True,
+                "enough_history": False,
+                "message": f"Percentiles need at least {self.MIN_DAYS_FOR_PERCENTILE} days of history.",
+            }
 
         return {
             "date": target_date.isoformat(),
@@ -523,6 +544,7 @@ class TrendAnalyzer:
             "aura": target_metrics.aura,
             "aura_pct": aura_pct,
             "has_data": True,
+            "enough_history": True,
         }
 
     async def get_7day_summary_with_best_worst(self) -> dict:

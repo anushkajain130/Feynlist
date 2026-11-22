@@ -43,10 +43,19 @@ class Settings(BaseSettings):
     def has_api_key(self) -> bool:
         return bool(self.resolved_api_key)
 
-    # Model routing — stable aliases (no preview suffix, always current)
-    model_high_priority: str = "gemini-2.5-pro"
-    model_standard: str = "gemini-2.5-flash"
-    model_low_priority: str = "gemini-2.5-flash-lite"
+    # Model routing. Free tier only: use Flash or Flash-Lite models (Pro models
+    # have no free-tier quota). Personas pick a tier via `model_tier` in their YAML.
+    # Set both to whichever model has the higher free daily allowance in AI Studio.
+    gemini_model_standard: str = Field(default="gemini-2.5-flash", alias="GEMINI_MODEL_STANDARD")
+    gemini_model_light: str = Field(default="gemini-2.5-flash-lite", alias="GEMINI_MODEL_LIGHT")
+
+    # Thinking budget for 2.5 Flash models (tokens). 0 = off (short replies don't need
+    # it and thinking tokens eat into max_output_tokens). -1 = leave the model default.
+    gemini_thinking_budget: int = Field(default=0, alias="GEMINI_THINKING_BUDGET")
+
+    def model_for_tier(self, tier: str | None) -> str:
+        """'light' -> GEMINI_MODEL_LIGHT, anything else -> GEMINI_MODEL_STANDARD."""
+        return self.gemini_model_light if tier == "light" else self.gemini_model_standard
 
     # -------------------------------------------------------------------------
     # Database
@@ -76,29 +85,42 @@ class Settings(BaseSettings):
     )
 
     # -------------------------------------------------------------------------
-    # Rate Limiting (interactions per day per tier)
+    # Default time zone (IANA name, e.g. "Europe/London") for "today"/"now" and for
+    # scheduled jobs. Requests from the browser use the browser's own zone instead.
+    # Empty = the server's local time.
     # -------------------------------------------------------------------------
-    free_tier_daily_interactions: int = Field(
-        default=8, alias="FREE_TIER_DAILY_INTERACTIONS"
-    )
-    pro_tier_daily_interactions: int = Field(
-        default=40, alias="PRO_TIER_DAILY_INTERACTIONS"
-    )
-    ultra_tier_daily_interactions: int = Field(
-        default=150, alias="ULTRA_TIER_DAILY_INTERACTIONS"
-    )
+    app_timezone: str = Field(default="", alias="APP_TIMEZONE")
 
     # -------------------------------------------------------------------------
-    # Paths
+    # Public demo (evaluator) mode
     # -------------------------------------------------------------------------
-    persona_configs_dir: Path = Field(
-        default=PROJECT_ROOT / "config" / "persona_configs",
-        alias="PERSONA_CONFIGS_DIR",
-    )
-    assets_dir: Path = Field(
-        default=PROJECT_ROOT / "assets",
-        alias="ASSETS_DIR",
-    )
+    # true = every browser session gets its own throwaway database seeded with
+    # sample data (identified by the X-Feynlist-Session header).
+    demo_mode: bool = Field(default=False, alias="DEMO_MODE")
+    demo_data_dir: Path = Field(default=Path("/tmp/feynlist-demo"), alias="DEMO_DATA_DIR")
+    demo_max_sessions: int = Field(default=200, alias="DEMO_MAX_SESSIONS")
+
+    # -------------------------------------------------------------------------
+    # Free-tier AI budget (see agents/ai_budget.py)
+    # -------------------------------------------------------------------------
+    live_replies_per_session: int = Field(default=2, alias="LIVE_REPLIES_PER_SESSION")
+    # Live model requests per day across all users (Pacific day). Set it below your
+    # AI Studio daily request limit, leaving headroom for your own evals. 0 = no cap.
+    live_ai_daily_cap: int = Field(default=20, alias="LIVE_AI_DAILY_CAP")
+    live_ai_per_minute: int = Field(default=8, alias="LIVE_AI_PER_MINUTE")
+    ai_budget_path: Path = Field(default=Path("/tmp/feynlist-demo/ai_budget.db"), alias="AI_BUDGET_PATH")
+    # Scheduled jobs and automatic nudges call the model only when this is true
+    # (local/real use). Keep false for the public demo.
+    enable_proactive_llm: bool = Field(default=False, alias="ENABLE_PROACTIVE_LLM")
+
+    # Frontend origins allowed to call the API (comma-separated). "*" = any (local dev).
+    allowed_origins: str = Field(default="*", alias="ALLOWED_ORIGINS")
+
+    @property
+    def allowed_origin_list(self) -> list[str]:
+        return [o.strip().rstrip("/") for o in self.allowed_origins.split(",") if o.strip()]
+
+    # (Persona configs live in agents/personas/*.yaml; see agents/runtime.PERSONAS_DIR.)
 
     # -------------------------------------------------------------------------
     # Analytics thresholds
@@ -114,6 +136,10 @@ class Settings(BaseSettings):
     # Aura formula: log(1 + streak) to avoid zero-collapse
     # aura = (disc/100)^0.5 * (ps_hrs/ps_target)^0.5 * log(1+streak)
     ps_hrs_target_per_3days: float = 6.0
+
+    # Consistency streak: a day counts if the user checks in "I kept my commitment"
+    # or completes at least this share of their planned tasks (0.0–1.0).
+    streak_min_completion: float = Field(default=0.5, alias="STREAK_MIN_COMPLETION")
 
 
 # Singleton — import this everywhere

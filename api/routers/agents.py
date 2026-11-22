@@ -23,8 +23,36 @@ from api.schemas import (
     CouncilResponse, AgentStatusResponse,
 )
 from agents.orchestrator import orchestrator
+from core import clock
 from core.models import AgentId, AppEvent, EventType
-from core.exceptions import AgentCooldownError, AgentRuntimeError
+from core.exceptions import AgentCooldownError, AgentRuntimeError, AgentUnavailableError
+
+
+SAMPLE_LABEL = "Sample reply (pre-written, not live)"
+
+
+def sample_fields(msg) -> dict:
+    """Label + friendly reason for sample replies (never presented as live)."""
+    from agents.ai_budget import SAMPLE_REASONS
+    if not getattr(msg, "is_sample", False):
+        return {"is_sample": False, "sample_label": None, "sample_reason": None}
+    return {
+        "is_sample": True,
+        "sample_label": SAMPLE_LABEL,
+        "sample_reason": SAMPLE_REASONS.get(msg.sample_reason or "", SAMPLE_REASONS["provider_error"]),
+    }
+
+
+def _cooldown_message(agent_id: str, seconds: int) -> str:
+    minutes = max(1, round(seconds / 60))
+    return f"{agent_id.capitalize()} is taking a short break. Try again in about {minutes} min."
+
+
+def _unavailable_detail(e: AgentRuntimeError) -> str:
+    """User-safe text for any agent failure; never the raw provider error."""
+    if isinstance(e, AgentUnavailableError):
+        return e.user_message
+    return AgentUnavailableError("provider_error").user_message
 from notifications.triggers import emit_user_message
 
 router = APIRouter(prefix="/api/agents", tags=["Agents"])
@@ -53,9 +81,10 @@ def _agent_msg_to_response(msg) -> AgentMessageResponse:
         input_tokens=getattr(msg, "input_tokens", 0),
         output_tokens=getattr(msg, "output_tokens", 0),
         tokens_used=getattr(msg, "tokens_used", 0),
-        model_used=getattr(msg, "model_used", "gemini-2.5-flash-preview-05-20"),
+        model_used=getattr(msg, "model_used", ""),
         latency_ms=getattr(msg, "latency_ms", 0),
         debug=debug_val,
+        **sample_fields(msg),
     )
 
 
@@ -93,9 +122,9 @@ async def send_message(req: SendMessageRequest):
                 total_agents=1,
             )
         except AgentCooldownError as e:
-            raise HTTPException(status_code=429, detail=str(e))
+            raise HTTPException(status_code=429, detail=_cooldown_message(e.agent_id, e.seconds_remaining))
         except AgentRuntimeError as e:
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=503, detail=_unavailable_detail(e))
 
     else:
         # Route via event bus → orchestrator
@@ -104,12 +133,15 @@ async def send_message(req: SendMessageRequest):
             source="user",
             payload={"message": req.message},
         )
-        messages = await orchestrator.dispatch(event)
+        try:
+            messages = await orchestrator.dispatch(event, raise_unavailable=True)
+        except AgentRuntimeError as e:
+            raise HTTPException(status_code=503, detail=_unavailable_detail(e))
 
         if not messages:
             raise HTTPException(
                 status_code=429,
-                detail="All agents are on cooldown. Try again shortly."
+                detail="The Council is taking a short break. Try again in a few minutes."
             )
 
         return CouncilResponse(
@@ -121,7 +153,11 @@ async def send_message(req: SendMessageRequest):
 @router.get("/status", response_model=AgentStatusResponse)
 async def get_agent_status():
     """Return cooldown state for all 5 agents."""
-    return AgentStatusResponse(agents=orchestrator.agent_status())
+    from config.settings import settings
+    return AgentStatusResponse(
+        agents=orchestrator.agent_status(),
+        ai_configured=settings.has_api_key,
+    )
 
 
 @router.get("/{agent_id}/ask", response_model=AgentMessageResponse)
@@ -140,45 +176,92 @@ async def ask_agent(agent_id: str, message: str, bypass_cooldown: bool = False):
         )
         return _agent_msg_to_response(msg)
     except AgentCooldownError as e:
-        raise HTTPException(status_code=429, detail=str(e))
+        raise HTTPException(status_code=429, detail=_cooldown_message(e.agent_id, e.seconds_remaining))
     except AgentRuntimeError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=503, detail=_unavailable_detail(e))
 
 
 # =============================================================================
 # WEBSOCKET — Real-Time Agent Stream
 # =============================================================================
 
+def ws_payload(msg, proactive: bool = False) -> dict:
+    """Serialize an AgentMessage for the websocket / nudges feed."""
+    debug_val = None
+    if msg.debug:
+        if isinstance(msg.debug, str):
+            try:
+                debug_val = json.loads(msg.debug)
+            except Exception:
+                debug_val = {"raw": msg.debug}
+        elif isinstance(msg.debug, dict):
+            debug_val = msg.debug
+    return {
+        "type": "agent_message",
+        "id": msg.id,
+        "agent_id": msg.agent_id.value,
+        "display_name": orchestrator.get_runtime(msg.agent_id).display_name,
+        "content": msg.content,
+        "triggered_by": msg.triggered_by.value if msg.triggered_by else None,
+        "proactive": proactive,
+        "timestamp": msg.timestamp.isoformat() if hasattr(msg.timestamp, "isoformat") else str(msg.timestamp),
+        "tool_used": msg.tool_used,
+        "input_tokens": getattr(msg, "input_tokens", 0),
+        "output_tokens": getattr(msg, "output_tokens", 0),
+        "tokens_used": getattr(msg, "tokens_used", 0),
+        "model_used": getattr(msg, "model_used", ""),
+        "latency_ms": getattr(msg, "latency_ms", 0),
+        "debug": debug_val,
+        **sample_fields(msg),
+    }
+
+
 class ConnectionManager:
-    """Manages active WebSocket connections."""
+    """Manages active WebSocket connections, remembering each one's demo session."""
 
     def __init__(self):
-        self.active: list[WebSocket] = []
+        self.active: dict[WebSocket, str | None] = {}
 
     async def connect(self, ws: WebSocket) -> None:
+        from core.session import current_session_id
         await ws.accept()
-        self.active.append(ws)
+        self.active[ws] = current_session_id.get()
         logger.info(f"WS: client connected ({len(self.active)} total)")
 
     def disconnect(self, ws: WebSocket) -> None:
-        self.active.remove(ws)
+        self.active.pop(ws, None)
         logger.info(f"WS: client disconnected ({len(self.active)} remaining)")
 
-    async def broadcast(self, data: dict) -> None:
+    async def broadcast_session(self, session_id: str | None, data: dict) -> None:
+        """Send to every open socket of one session (or of single-user mode when None)."""
         dead = []
-        for ws in self.active:
+        for ws, sid in list(self.active.items()):
+            if sid != session_id:
+                continue
             try:
                 await ws.send_json(data)
             except Exception:
                 dead.append(ws)
         for ws in dead:
-            self.active.remove(ws)
+            self.active.pop(ws, None)
 
     async def send_to(self, ws: WebSocket, data: dict) -> None:
         await ws.send_json(data)
 
 
 ws_manager = ConnectionManager()
+
+
+async def _push_proactive(messages) -> None:
+    """Proactive nudges go straight to the session's open Council page."""
+    from core.session import current_session_id
+    sid = current_session_id.get()
+    for msg in messages:
+        await ws_manager.broadcast_session(sid, ws_payload(msg, proactive=True))
+
+
+from agents.orchestrator import PROACTIVE_LISTENERS  # noqa: E402
+PROACTIVE_LISTENERS.append(_push_proactive)
 
 
 @router.websocket("/ws")
@@ -239,41 +322,35 @@ async def websocket_endpoint(websocket: WebSocket):
                             message=user_message,
                             bypass_cooldown=True,
                         )]
-                    except (AgentCooldownError, AgentRuntimeError) as e:
+                    except AgentCooldownError as e:
                         messages = []
                         await ws_manager.send_to(websocket, {
-                            "type": "error", "message": str(e)
+                            "type": "error",
+                            "message": _cooldown_message(e.agent_id, e.seconds_remaining),
+                        })
+                    except AgentRuntimeError as e:
+                        messages = []
+                        await ws_manager.send_to(websocket, {
+                            "type": "error", "message": _unavailable_detail(e)
                         })
                 else:
-                    messages = await orchestrator.dispatch(event)
+                    try:
+                        messages = await orchestrator.dispatch(event, raise_unavailable=True)
+                    except AgentRuntimeError as e:
+                        messages = []
+                        await ws_manager.send_to(websocket, {
+                            "type": "error", "message": _unavailable_detail(e)
+                        })
+                    else:
+                        if not messages:
+                            await ws_manager.send_to(websocket, {
+                                "type": "error",
+                                "message": "The Council is taking a short break. Try again in a few minutes.",
+                            })
 
                 # Stream each agent response
                 for msg in messages:
-                    debug_val = None
-                    if msg.debug:
-                        if isinstance(msg.debug, str):
-                            try:
-                                debug_val = json.loads(msg.debug)
-                            except Exception:
-                                debug_val = {"raw": msg.debug}
-                        elif isinstance(msg.debug, dict):
-                            debug_val = msg.debug
-
-                    await ws_manager.send_to(websocket, {
-                        "type": "agent_message",
-                        "id": msg.id,
-                        "agent_id": msg.agent_id.value,
-                        "display_name": orchestrator.get_runtime(msg.agent_id).display_name,
-                        "content": msg.content,
-                        "timestamp": msg.timestamp.isoformat() if hasattr(msg.timestamp, "isoformat") else str(msg.timestamp),
-                        "tool_used": msg.tool_used,
-                        "input_tokens": getattr(msg, "input_tokens", 0),
-                        "output_tokens": getattr(msg, "output_tokens", 0),
-                        "tokens_used": getattr(msg, "tokens_used", 0),
-                        "model_used": getattr(msg, "model_used", "gemini-2.5-flash-preview-05-20"),
-                        "latency_ms": getattr(msg, "latency_ms", 0),
-                        "debug": debug_val,
-                    })
+                    await ws_manager.send_to(websocket, ws_payload(msg))
                     await asyncio.sleep(0.05)  # Slight delay between messages
 
             except json.JSONDecodeError:
@@ -292,6 +369,44 @@ async def websocket_endpoint(websocket: WebSocket):
         ws_manager.disconnect(websocket)
 
 
+@router.get("/nudges")
+async def get_nudges(limit: int = 10):
+    """Most recent proactive (unprompted) coach messages, newest first."""
+    from data.database import db
+    limit = max(1, min(limit, 50))
+    rows = await db.fetch_all(
+        """
+        SELECT id, agent_id, content, triggered_by, model_used, timestamp, is_sample, sample_reason
+        FROM agent_messages
+        WHERE triggered_by IS NOT NULL AND triggered_by != 'user_direct_message'
+        ORDER BY timestamp DESC, rowid DESC
+        LIMIT ?
+        """,
+        (limit,),
+    )
+    from agents.ai_budget import SAMPLE_REASONS
+    nudges = []
+    for r in rows:
+        n = dict(r)
+        n["is_sample"] = bool(n.get("is_sample"))
+        n["sample_label"] = SAMPLE_LABEL if n["is_sample"] else None
+        n["sample_reason"] = SAMPLE_REASONS.get(n.get("sample_reason") or "") if n["is_sample"] else None
+        nudges.append(n)
+    return {"nudges": nudges}
+
+
+@router.get("/budget")
+async def get_budget():
+    """Live replies left for this session, and whether replies are live or samples."""
+    from agents.ai_budget import ai_budget
+    status = ai_budget.status()
+    status["notice"] = (
+        "Live replies use a free Google API; don't enter personal information. "
+        "This demo uses sample data."
+    )
+    return status
+
+
 @router.get("/tokens/today")
 async def get_tokens_today():
     """Return total tokens consumed by all agents today."""
@@ -300,7 +415,7 @@ async def get_tokens_today():
     try:
         # Get count of tokens used today from agent_messages
         # (matching current date prefix in timestamp column)
-        today_str = date.today().isoformat()
+        today_str = clock.today().isoformat()
         row = await db.fetch_one(
             "SELECT SUM(tokens_used) as t FROM agent_messages WHERE timestamp LIKE ?", 
             (f"{today_str}%",)

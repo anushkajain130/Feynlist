@@ -1,0 +1,369 @@
+INFO:     Started server process [646]
+INFO:     Waiting for application startup.
+2026-11-21 20:32:46.116 +00:00 | INFO     | core.startup:startup:50 - ==================================================
+2026-11-21 20:32:46.116 +00:00 | INFO     | core.startup:startup:51 - Feynlist V1 — starting up
+2026-11-21 20:32:46.116 +00:00 | INFO     | core.startup:startup:52 - ==================================================
+2026-11-21 20:32:46.117 +00:00 | INFO     | core.startup:startup:55 - Step 1/5: Initializing database...
+2026-11-21 20:32:46.117 +00:00 | INFO     | data.database:initialize:60 - Initializing database at: <scratch>/baseline.db
+2026-11-21 20:32:46.304 +00:00 | DEBUG    | data.database:_run_migrations:108 - Current schema version: 0
+2026-11-21 20:32:46.304 +00:00 | INFO     | data.database:_run_migrations:117 - Applying migration: 001_initial_schema.sql
+2026-11-21 20:32:46.311 +00:00 | INFO     | data.database:_run_migrations:123 - Migration 1 applied successfully.
+2026-11-21 20:32:46.316 +00:00 | INFO     | data.database:initialize:84 - Database initialized successfully.
+2026-11-21 20:32:46.316 +00:00 | INFO     | core.startup:startup:59 - Step 2/5: Registering tools...
+2026-11-21 20:32:46.316 +00:00 | DEBUG    | tools.registry:register:67 - Registered tool: 'get_current_tasks' (agents: all)
+2026-11-21 20:32:46.316 +00:00 | DEBUG    | tools.registry:register:67 - Registered tool: 'get_task_summary' (agents: all)
+2026-11-21 20:32:46.316 +00:00 | DEBUG    | tools.registry:register:67 - Registered tool: 'get_missed_tasks' (agents: all)
+2026-11-21 20:32:46.316 +00:00 | DEBUG    | tools.registry:register:67 - Registered tool: 'mark_subtask' (agents: ['freya', 'zerotwo'])
+2026-11-21 20:32:46.316 +00:00 | DEBUG    | tools.registry:register:67 - Registered tool: 'get_daily_metrics' (agents: all)
+2026-11-21 20:32:46.316 +00:00 | DEBUG    | tools.registry:register:67 - Registered tool: 'get_trend_summary' (agents: all)
+2026-11-21 20:32:46.316 +00:00 | DEBUG    | tools.registry:register:67 - Registered tool: 'get_percentile' (agents: all)
+2026-11-21 20:32:46.316 +00:00 | DEBUG    | tools.registry:register:67 - Registered tool: 'get_burnout_signal' (agents: all)
+2026-11-21 20:32:46.316 +00:00 | DEBUG    | tools.registry:register:67 - Registered tool: 'store_memory' (agents: all)
+2026-11-21 20:32:46.316 +00:00 | DEBUG    | tools.registry:register:67 - Registered tool: 'retrieve_memory' (agents: all)
+2026-11-21 20:32:46.316 +00:00 | DEBUG    | tools.registry:register:67 - Registered tool: 'get_top_memories' (agents: all)
+2026-11-21 20:32:46.316 +00:00 | DEBUG    | tools.registry:register:67 - Registered tool: 'get_time_context' (agents: all)
+2026-11-21 20:32:46.316 +00:00 | DEBUG    | core.startup:_register_tools:128 - Tools registered: ['get_current_tasks', 'get_task_summary', 'get_missed_tasks', 'mark_subtask', 'get_daily_metrics', 'get_trend_summary', 'get_percentile', 'get_burnout_signal', 'store_memory', 'retrieve_memory', 'get_top_memories', 'get_time_context']
+2026-11-21 20:32:46.316 +00:00 | INFO     | core.startup:startup:63 - Step 3/5: Initializing agent runtimes...
+2026-11-21 20:32:46.316 +00:00 | INFO     | agents.orchestrator:initialize:82 - Orchestrator: initializing all agent runtimes...
+2026-11-21 20:32:46.325 +00:00 | WARNING  | agents.orchestrator:initialize:94 - Orchestrator: freya failed to init: No API key found. Set GEMINI_API_KEY or GOOGLE_API_KEY in your .env file.
+2026-11-21 20:32:46.325 +00:00 | WARNING  | agents.orchestrator:initialize:94 - Orchestrator: albedo failed to init: No API key found. Set GEMINI_API_KEY or GOOGLE_API_KEY in your .env file.
+2026-11-21 20:32:46.325 +00:00 | WARNING  | agents.orchestrator:initialize:94 - Orchestrator: anya failed to init: No API key found. Set GEMINI_API_KEY or GOOGLE_API_KEY in your .env file.
+2026-11-21 20:32:46.325 +00:00 | WARNING  | agents.orchestrator:initialize:94 - Orchestrator: zerotwo failed to init: No API key found. Set GEMINI_API_KEY or GOOGLE_API_KEY in your .env file.
+2026-11-21 20:32:46.325 +00:00 | WARNING  | agents.orchestrator:initialize:94 - Orchestrator: mohini failed to init: No API key found. Set GEMINI_API_KEY or GOOGLE_API_KEY in your .env file.
+2026-11-21 20:32:46.325 +00:00 | ERROR    | agents.orchestrator:initialize:96 - Orchestrator: ALL agent runtimes failed to initialize.
+2026-11-21 20:32:46.325 +00:00 | INFO     | agents.orchestrator:initialize:102 - Orchestrator: 0/5 runtimes ready.
+2026-11-21 20:32:46.325 +00:00 | INFO     | core.startup:startup:67 - Step 4/5: Wiring event bus to rules engine...
+2026-11-21 20:32:46.325 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for task_started
+2026-11-21 20:32:46.325 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for task_completed
+2026-11-21 20:32:46.325 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for task_missed
+2026-11-21 20:32:46.325 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for subtask_toggled
+2026-11-21 20:32:46.325 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for task_added
+2026-11-21 20:32:46.325 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for inactivity_detected
+2026-11-21 20:32:46.325 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for distraction_detected
+2026-11-21 20:32:46.325 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for productivity_spike
+2026-11-21 20:32:46.325 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for focus_drop
+2026-11-21 20:32:46.325 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for low_energy_detected
+2026-11-21 20:32:46.325 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for consecutive_misses
+2026-11-21 20:32:46.325 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for social_overrun
+2026-11-21 20:32:46.325 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for deviated_class_logged
+2026-11-21 20:32:46.325 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for revived_class_logged
+2026-11-21 20:32:46.325 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for burnout_detected
+2026-11-21 20:32:46.325 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for high_score
+2026-11-21 20:32:46.325 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for performance_drop
+2026-11-21 20:32:46.325 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for streak_broken
+2026-11-21 20:32:46.325 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for streak_milestone
+2026-11-21 20:32:46.325 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for day_start
+2026-11-21 20:32:46.325 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for day_started
+2026-11-21 20:32:46.325 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for day_ended
+2026-11-21 20:32:46.325 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for day_end_review
+2026-11-21 20:32:46.326 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for work_block_started
+2026-11-21 20:32:46.326 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for work_block_ended
+2026-11-21 20:32:46.326 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for week_review
+2026-11-21 20:32:46.326 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for agent_intervention_requested
+2026-11-21 20:32:46.326 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for scheduled_checkin
+2026-11-21 20:32:46.326 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for user_message
+2026-11-21 20:32:46.326 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for user_direct_message
+2026-11-21 20:32:46.326 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for user_emotional_state
+2026-11-21 20:32:46.326 +00:00 | DEBUG    | core.startup:_wire_event_bus:149 - Event bus wired to rules engine for all event types.
+2026-11-21 20:32:46.326 +00:00 | DEBUG    | events.rules_engine:register:55 - RulesEngine: registered rule 'task_missed_freya' for task_missed
+2026-11-21 20:32:46.326 +00:00 | DEBUG    | events.rules_engine:register:55 - RulesEngine: registered rule 'streak_broken_anya' for streak_broken
+2026-11-21 20:32:46.326 +00:00 | DEBUG    | events.rules_engine:register:55 - RulesEngine: registered rule 'burnout_anya' for burnout_detected
+2026-11-21 20:32:46.326 +00:00 | DEBUG    | events.rules_engine:register:55 - RulesEngine: registered rule 'task_completed_albedo' for task_completed
+2026-11-21 20:32:46.326 +00:00 | DEBUG    | events.rules_engine:register:55 - RulesEngine: registered rule 'checkin_zerotwo' for scheduled_checkin
+2026-11-21 20:32:46.326 +00:00 | DEBUG    | events.rules_engine:register:55 - RulesEngine: registered rule 'low_energy_mohini' for low_energy_detected
+2026-11-21 20:32:46.326 +00:00 | DEBUG    | events.rules_engine:register:55 - RulesEngine: registered rule 'user_message_route' for user_direct_message
+2026-11-21 20:32:46.326 +00:00 | INFO     | events.rules_engine:register_default_rules:190 - RulesEngine: 7 default rules registered.
+2026-11-21 20:32:46.326 +00:00 | INFO     | core.startup:startup:72 - Step 5/5: Starting background scheduler...
+2026-11-21 20:32:46.328 +00:00 | INFO     | notifications.scheduler:setup_jobs:133 - Scheduler: 5 jobs registered.
+2026-11-21 20:32:46.329 +00:00 | INFO     | notifications.scheduler:start:142 - Scheduler: started.
+2026-11-21 20:32:46.329 +00:00 | INFO     | core.startup:startup:75 - Feynlist V1 — startup complete ✅
+2026-11-21 20:32:46.329 +00:00 | INFO     | core.startup:startup:76 -   Tools registered: 12
+2026-11-21 20:32:46.330 +00:00 | INFO     | core.startup:startup:77 -   Rules registered: 7
+2026-11-21 20:32:46.330 +00:00 | INFO     | core.startup:startup:78 -   Scheduler jobs:   5
+2026-11-21 20:32:46.330 +00:00 | INFO     | core.startup:startup:79 - ==================================================
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+2026-11-21 20:32:47.012 +00:00 | ERROR    | api.main:global_exception_handler:113 - Unhandled exception on http://localhost:8000/health: 'Database' object has no attribute 'is_initialized'
+INFO:     127.0.0.1:47834 - "GET /health HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "<repo>/.venv/lib/python3.13/site-packages/uvicorn/protocols/http/httptools_impl.py", line 422, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        self.scope, self.receive, self.send
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "<repo>/.venv/lib/python3.13/site-packages/uvicorn/middleware/proxy_headers.py", line 63, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<repo>/.venv/lib/python3.13/site-packages/fastapi/applications.py", line 1224, in __call__
+    await super().__call__(scope, receive, send)
+  File "<repo>/.venv/lib/python3.13/site-packages/starlette/applications.py", line 96, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "<repo>/.venv/lib/python3.13/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    raise exc
+  File "<repo>/.venv/lib/python3.13/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "<repo>/.venv/lib/python3.13/site-packages/fastapi/telemetry/_asgi.py", line 151, in __call__
+    await self.app(scope, receive, send)
+  File "<repo>/.venv/lib/python3.13/site-packages/fastapi/_body_limit.py", line 80, in __call__
+    await self.app(scope, receive, send)
+  File "<repo>/.venv/lib/python3.13/site-packages/starlette/middleware/cors.py", line 91, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "<repo>/.venv/lib/python3.13/site-packages/starlette/middleware/cors.py", line 149, in simple_response
+    await self.app(scope, receive, send)
+  File "<repo>/.venv/lib/python3.13/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "<repo>/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "<repo>/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "<repo>/.venv/lib/python3.13/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "<repo>/.venv/lib/python3.13/site-packages/starlette/routing.py", line 683, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "<repo>/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 2929, in app
+    await route.handle(scope, receive, send)
+  File "<repo>/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 1375, in handle
+    await super().handle(scope, receive, send)
+  File "<repo>/.venv/lib/python3.13/site-packages/starlette/routing.py", line 289, in handle
+    await self.app(scope, receive, send)
+  File "<repo>/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 175, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "<repo>/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "<repo>/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "<repo>/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 161, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "<repo>/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 762, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "<repo>/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 381, in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<repo>/api/main.py", line 92, in health_check
+    db_ok = db.is_initialized()
+            ^^^^^^^^^^^^^^^^^
+AttributeError: 'Database' object has no attribute 'is_initialized'. Did you mean: 'initialize'?
+2026-11-21 20:32:47.091 +00:00 | INFO     | analytics.pipeline:run:46 - Running analytics pipeline for 2026-11-21
+INFO:     127.0.0.1:47850 - "GET /api/tasks/today HTTP/1.1" 200 OK
+2026-11-21 20:32:47.094 +00:00 | WARNING  | analytics.pipeline:run:52 - No tasks found for 2026-11-21. Skipping analytics.
+INFO:     127.0.0.1:47854 - "GET /api/analytics/today HTTP/1.1" 200 OK
+2026-11-21 20:33:04.326 +00:00 | ERROR    | api.main:global_exception_handler:113 - Unhandled exception on http://127.0.0.1:8000/health: 'Database' object has no attribute 'is_initialized'
+INFO:     127.0.0.1:55948 - "GET /health HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "<repo>/.venv/lib/python3.13/site-packages/uvicorn/protocols/http/httptools_impl.py", line 422, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        self.scope, self.receive, self.send
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "<repo>/.venv/lib/python3.13/site-packages/uvicorn/middleware/proxy_headers.py", line 63, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<repo>/.venv/lib/python3.13/site-packages/fastapi/applications.py", line 1224, in __call__
+    await super().__call__(scope, receive, send)
+  File "<repo>/.venv/lib/python3.13/site-packages/starlette/applications.py", line 96, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "<repo>/.venv/lib/python3.13/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    raise exc
+  File "<repo>/.venv/lib/python3.13/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "<repo>/.venv/lib/python3.13/site-packages/fastapi/telemetry/_asgi.py", line 151, in __call__
+    await self.app(scope, receive, send)
+  File "<repo>/.venv/lib/python3.13/site-packages/fastapi/_body_limit.py", line 80, in __call__
+    await self.app(scope, receive, send)
+  File "<repo>/.venv/lib/python3.13/site-packages/starlette/middleware/cors.py", line 91, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "<repo>/.venv/lib/python3.13/site-packages/starlette/middleware/cors.py", line 149, in simple_response
+    await self.app(scope, receive, send)
+  File "<repo>/.venv/lib/python3.13/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "<repo>/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "<repo>/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "<repo>/.venv/lib/python3.13/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "<repo>/.venv/lib/python3.13/site-packages/starlette/routing.py", line 683, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "<repo>/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 2929, in app
+    await route.handle(scope, receive, send)
+  File "<repo>/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 1375, in handle
+    await super().handle(scope, receive, send)
+  File "<repo>/.venv/lib/python3.13/site-packages/starlette/routing.py", line 289, in handle
+    await self.app(scope, receive, send)
+  File "<repo>/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 175, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "<repo>/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "<repo>/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "<repo>/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 161, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "<repo>/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 762, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "<repo>/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 381, in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<repo>/api/main.py", line 92, in health_check
+    db_ok = db.is_initialized()
+            ^^^^^^^^^^^^^^^^^
+AttributeError: 'Database' object has no attribute 'is_initialized'. Did you mean: 'initialize'?
+INFO:     127.0.0.1:55964 - "GET /api/tasks/today HTTP/1.1" 200 OK
+2026-11-21 20:33:04.340 +00:00 | INFO     | analytics.pipeline:run:46 - Running analytics pipeline for 2026-11-21
+2026-11-21 20:33:04.343 +00:00 | WARNING  | analytics.pipeline:run:52 - No tasks found for 2026-11-21. Skipping analytics.
+INFO:     127.0.0.1:55978 - "GET /api/analytics/today HTTP/1.1" 200 OK
+2026-11-21 20:33:04.350 +00:00 | INFO     | api.routers.tasks:set_schedule:185 - Cleared 0 existing tasks for 2026-11-21
+2026-11-21 20:33:04.467 +00:00 | INFO     | data.repositories.task_repo:bulk_upsert:177 - Bulk upserted 2 tasks.
+2026-11-21 20:33:04.468 +00:00 | INFO     | api.routers.tasks:set_schedule:218 - Scheduled 2 tasks for 2026-11-21
+INFO:     127.0.0.1:55994 - "POST /api/tasks/schedule HTTP/1.1" 201 Created
+INFO:     127.0.0.1:55996 - "GET /api/tasks/today HTTP/1.1" 200 OK
+2026-11-21 20:33:04.498 +00:00 | INFO     | analytics.pipeline:run:46 - Running analytics pipeline for 2026-11-21
+2026-11-21 20:33:04.502 +00:00 | DEBUG    | data.repositories.analytics_repo:upsert_metrics:99 - Upserted analytics for 2026-11-21: aura=0.30
+2026-11-21 20:33:04.502 +00:00 | INFO     | analytics.pipeline:run:94 - Analytics for 2026-11-21: discipline=90.9% alertness=0.0% ps=0.0h aura=0.30 streak=1d
+INFO:     127.0.0.1:56002 - "POST /api/tasks/toggle-subtask HTTP/1.1" 200 OK
+2026-11-21 20:33:04.509 +00:00 | INFO     | analytics.pipeline:run:46 - Running analytics pipeline for 2026-11-21
+2026-11-21 20:33:04.513 +00:00 | DEBUG    | data.repositories.analytics_repo:upsert_metrics:99 - Upserted analytics for 2026-11-21: aura=0.30
+2026-11-21 20:33:04.513 +00:00 | INFO     | analytics.pipeline:run:94 - Analytics for 2026-11-21: discipline=90.9% alertness=0.0% ps=0.0h aura=0.30 streak=1d
+INFO:     127.0.0.1:56016 - "GET /api/analytics/today HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56022 - "GET /api/analytics/history?days=14 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56036 - "GET /api/analytics/burnout HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56040 - "GET /api/agents/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56056 - "POST /api/agents/message HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:56068 - "GET /api/agents/tokens/today HTTP/1.1" 200 OK
+2026-11-21 20:33:20.521 +00:00 | INFO     | analytics.pipeline:run:46 - Running analytics pipeline for 2026-11-21
+INFO:     127.0.0.1:58556 - "GET /api/tasks/today HTTP/1.1" 200 OK
+2026-11-21 20:33:20.534 +00:00 | DEBUG    | data.repositories.analytics_repo:upsert_metrics:99 - Upserted analytics for 2026-11-21: aura=0.30
+2026-11-21 20:33:20.534 +00:00 | INFO     | analytics.pipeline:run:94 - Analytics for 2026-11-21: discipline=90.9% alertness=0.0% ps=0.0h aura=0.30 streak=1d
+INFO:     127.0.0.1:58570 - "GET /api/analytics/today HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58584 - "GET /api/analytics/burnout HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58556 - "GET /api/analytics/history?days=14 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58570 - "GET /api/analytics/summary/week HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58588 - "GET /api/agents/tokens/today HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58596 - "WebSocket /api/agents/ws" [accepted]
+INFO:     connection open
+2026-11-21 20:33:25.626 +00:00 | INFO     | api.routers.agents:connect:161 - WS: client connected (1 total)
+2026-11-21 20:33:27.813 +00:00 | INFO     | api.routers.agents:disconnect:165 - WS: client disconnected (0 remaining)
+2026-11-21 20:33:30.018 +00:00 | INFO     | analytics.pipeline:run:46 - Running analytics pipeline for 2026-11-21
+INFO:     127.0.0.1:39668 - "GET /api/tasks/today HTTP/1.1" 200 OK
+2026-11-21 20:33:30.026 +00:00 | DEBUG    | data.repositories.analytics_repo:upsert_metrics:99 - Upserted analytics for 2026-11-21: aura=0.30
+2026-11-21 20:33:30.026 +00:00 | INFO     | analytics.pipeline:run:94 - Analytics for 2026-11-21: discipline=90.9% alertness=0.0% ps=0.0h aura=0.30 streak=1d
+INFO:     127.0.0.1:39670 - "GET /api/analytics/today HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39678 - "GET /api/analytics/burnout HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39668 - "GET /api/analytics/history?days=14 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39670 - "GET /api/analytics/summary/week HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39684 - "WebSocket /api/agents/ws" [accepted]
+INFO:     connection open
+2026-11-21 20:33:34.976 +00:00 | INFO     | api.routers.agents:connect:161 - WS: client connected (1 total)
+INFO:     127.0.0.1:39696 - "GET /api/agents/tokens/today HTTP/1.1" 200 OK
+2026-11-21 20:33:37.215 +00:00 | INFO     | api.routers.agents:disconnect:165 - WS: client disconnected (0 remaining)
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-11-21 20:33:51.840 +00:00 | INFO     | core.startup:shutdown:84 - Feynlist V1 — shutting down...
+2026-11-21 20:33:51.840 +00:00 | INFO     | notifications.scheduler:stop:150 - Scheduler: stopped.
+2026-11-21 20:33:51.840 +00:00 | INFO     | agents.orchestrator:end_day:239 - Orchestrator: running end-of-day consolidation.
+2026-11-21 20:33:51.840 +00:00 | INFO     | memory.short_term:clear:51 - SessionMemory[freya] cleared.
+2026-11-21 20:33:51.840 +00:00 | INFO     | memory.short_term:clear:51 - SessionMemory[albedo] cleared.
+2026-11-21 20:33:51.840 +00:00 | INFO     | memory.short_term:clear:51 - SessionMemory[anya] cleared.
+2026-11-21 20:33:51.840 +00:00 | INFO     | memory.short_term:clear:51 - SessionMemory[zerotwo] cleared.
+2026-11-21 20:33:51.840 +00:00 | INFO     | memory.short_term:clear:51 - SessionMemory[mohini] cleared.
+2026-11-21 20:33:51.840 +00:00 | INFO     | core.startup:shutdown:87 - Feynlist V1 — shutdown complete.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [646]
+INFO:     Started server process [1064]
+INFO:     Waiting for application startup.
+2026-11-21 20:34:06.491 +00:00 | INFO     | core.startup:startup:50 - ==================================================
+2026-11-21 20:34:06.491 +00:00 | INFO     | core.startup:startup:51 - Feynlist V1 — starting up
+2026-11-21 20:34:06.491 +00:00 | INFO     | core.startup:startup:52 - ==================================================
+2026-11-21 20:34:06.491 +00:00 | INFO     | core.startup:startup:55 - Step 1/5: Initializing database...
+2026-11-21 20:34:06.491 +00:00 | INFO     | data.database:initialize:60 - Initializing database at: <scratch>/baseline.db
+2026-11-21 20:34:06.493 +00:00 | DEBUG    | data.database:_run_migrations:108 - Current schema version: 1
+2026-11-21 20:34:06.495 +00:00 | INFO     | data.database:initialize:84 - Database initialized successfully.
+2026-11-21 20:34:06.496 +00:00 | INFO     | core.startup:startup:59 - Step 2/5: Registering tools...
+2026-11-21 20:34:06.496 +00:00 | DEBUG    | tools.registry:register:67 - Registered tool: 'get_current_tasks' (agents: all)
+2026-11-21 20:34:06.496 +00:00 | DEBUG    | tools.registry:register:67 - Registered tool: 'get_task_summary' (agents: all)
+2026-11-21 20:34:06.496 +00:00 | DEBUG    | tools.registry:register:67 - Registered tool: 'get_missed_tasks' (agents: all)
+2026-11-21 20:34:06.496 +00:00 | DEBUG    | tools.registry:register:67 - Registered tool: 'mark_subtask' (agents: ['freya', 'zerotwo'])
+2026-11-21 20:34:06.496 +00:00 | DEBUG    | tools.registry:register:67 - Registered tool: 'get_daily_metrics' (agents: all)
+2026-11-21 20:34:06.496 +00:00 | DEBUG    | tools.registry:register:67 - Registered tool: 'get_trend_summary' (agents: all)
+2026-11-21 20:34:06.496 +00:00 | DEBUG    | tools.registry:register:67 - Registered tool: 'get_percentile' (agents: all)
+2026-11-21 20:34:06.496 +00:00 | DEBUG    | tools.registry:register:67 - Registered tool: 'get_burnout_signal' (agents: all)
+2026-11-21 20:34:06.496 +00:00 | DEBUG    | tools.registry:register:67 - Registered tool: 'store_memory' (agents: all)
+2026-11-21 20:34:06.496 +00:00 | DEBUG    | tools.registry:register:67 - Registered tool: 'retrieve_memory' (agents: all)
+2026-11-21 20:34:06.496 +00:00 | DEBUG    | tools.registry:register:67 - Registered tool: 'get_top_memories' (agents: all)
+2026-11-21 20:34:06.496 +00:00 | DEBUG    | tools.registry:register:67 - Registered tool: 'get_time_context' (agents: all)
+2026-11-21 20:34:06.496 +00:00 | DEBUG    | core.startup:_register_tools:128 - Tools registered: ['get_current_tasks', 'get_task_summary', 'get_missed_tasks', 'mark_subtask', 'get_daily_metrics', 'get_trend_summary', 'get_percentile', 'get_burnout_signal', 'store_memory', 'retrieve_memory', 'get_top_memories', 'get_time_context']
+2026-11-21 20:34:06.496 +00:00 | INFO     | core.startup:startup:63 - Step 3/5: Initializing agent runtimes...
+2026-11-21 20:34:06.496 +00:00 | INFO     | agents.orchestrator:initialize:82 - Orchestrator: initializing all agent runtimes...
+2026-11-21 20:34:06.502 +00:00 | WARNING  | agents.orchestrator:initialize:94 - Orchestrator: freya failed to init: No API key found. Set GEMINI_API_KEY or GOOGLE_API_KEY in your .env file.
+2026-11-21 20:34:06.502 +00:00 | WARNING  | agents.orchestrator:initialize:94 - Orchestrator: albedo failed to init: No API key found. Set GEMINI_API_KEY or GOOGLE_API_KEY in your .env file.
+2026-11-21 20:34:06.502 +00:00 | WARNING  | agents.orchestrator:initialize:94 - Orchestrator: anya failed to init: No API key found. Set GEMINI_API_KEY or GOOGLE_API_KEY in your .env file.
+2026-11-21 20:34:06.502 +00:00 | WARNING  | agents.orchestrator:initialize:94 - Orchestrator: zerotwo failed to init: No API key found. Set GEMINI_API_KEY or GOOGLE_API_KEY in your .env file.
+2026-11-21 20:34:06.502 +00:00 | WARNING  | agents.orchestrator:initialize:94 - Orchestrator: mohini failed to init: No API key found. Set GEMINI_API_KEY or GOOGLE_API_KEY in your .env file.
+2026-11-21 20:34:06.502 +00:00 | ERROR    | agents.orchestrator:initialize:96 - Orchestrator: ALL agent runtimes failed to initialize.
+2026-11-21 20:34:06.502 +00:00 | INFO     | agents.orchestrator:initialize:102 - Orchestrator: 0/5 runtimes ready.
+2026-11-21 20:34:06.502 +00:00 | INFO     | core.startup:startup:67 - Step 4/5: Wiring event bus to rules engine...
+2026-11-21 20:34:06.502 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for task_started
+2026-11-21 20:34:06.502 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for task_completed
+2026-11-21 20:34:06.502 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for task_missed
+2026-11-21 20:34:06.502 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for subtask_toggled
+2026-11-21 20:34:06.502 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for task_added
+2026-11-21 20:34:06.502 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for inactivity_detected
+2026-11-21 20:34:06.502 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for distraction_detected
+2026-11-21 20:34:06.502 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for productivity_spike
+2026-11-21 20:34:06.502 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for focus_drop
+2026-11-21 20:34:06.502 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for low_energy_detected
+2026-11-21 20:34:06.502 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for consecutive_misses
+2026-11-21 20:34:06.502 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for social_overrun
+2026-11-21 20:34:06.502 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for deviated_class_logged
+2026-11-21 20:34:06.502 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for revived_class_logged
+2026-11-21 20:34:06.502 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for burnout_detected
+2026-11-21 20:34:06.502 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for high_score
+2026-11-21 20:34:06.502 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for performance_drop
+2026-11-21 20:34:06.502 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for streak_broken
+2026-11-21 20:34:06.502 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for streak_milestone
+2026-11-21 20:34:06.502 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for day_start
+2026-11-21 20:34:06.502 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for day_started
+2026-11-21 20:34:06.502 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for day_ended
+2026-11-21 20:34:06.502 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for day_end_review
+2026-11-21 20:34:06.502 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for work_block_started
+2026-11-21 20:34:06.502 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for work_block_ended
+2026-11-21 20:34:06.502 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for week_review
+2026-11-21 20:34:06.502 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for agent_intervention_requested
+2026-11-21 20:34:06.502 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for scheduled_checkin
+2026-11-21 20:34:06.502 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for user_message
+2026-11-21 20:34:06.502 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for user_direct_message
+2026-11-21 20:34:06.502 +00:00 | DEBUG    | events.event_bus:subscribe_handler:69 - EventBus: registered handler for user_emotional_state
+2026-11-21 20:34:06.502 +00:00 | DEBUG    | core.startup:_wire_event_bus:149 - Event bus wired to rules engine for all event types.
+2026-11-21 20:34:06.502 +00:00 | DEBUG    | events.rules_engine:register:55 - RulesEngine: registered rule 'task_missed_freya' for task_missed
+2026-11-21 20:34:06.502 +00:00 | DEBUG    | events.rules_engine:register:55 - RulesEngine: registered rule 'streak_broken_anya' for streak_broken
+2026-11-21 20:34:06.502 +00:00 | DEBUG    | events.rules_engine:register:55 - RulesEngine: registered rule 'burnout_anya' for burnout_detected
+2026-11-21 20:34:06.502 +00:00 | DEBUG    | events.rules_engine:register:55 - RulesEngine: registered rule 'task_completed_albedo' for task_completed
+2026-11-21 20:34:06.502 +00:00 | DEBUG    | events.rules_engine:register:55 - RulesEngine: registered rule 'checkin_zerotwo' for scheduled_checkin
+2026-11-21 20:34:06.502 +00:00 | DEBUG    | events.rules_engine:register:55 - RulesEngine: registered rule 'low_energy_mohini' for low_energy_detected
+2026-11-21 20:34:06.502 +00:00 | DEBUG    | events.rules_engine:register:55 - RulesEngine: registered rule 'user_message_route' for user_direct_message
+2026-11-21 20:34:06.502 +00:00 | INFO     | events.rules_engine:register_default_rules:190 - RulesEngine: 7 default rules registered.
+2026-11-21 20:34:06.502 +00:00 | INFO     | core.startup:startup:72 - Step 5/5: Starting background scheduler...
+2026-11-21 20:34:06.504 +00:00 | INFO     | notifications.scheduler:setup_jobs:133 - Scheduler: 5 jobs registered.
+2026-11-21 20:34:06.504 +00:00 | INFO     | notifications.scheduler:start:142 - Scheduler: started.
+2026-11-21 20:34:06.504 +00:00 | INFO     | core.startup:startup:75 - Feynlist V1 — startup complete ✅
+2026-11-21 20:34:06.505 +00:00 | INFO     | core.startup:startup:76 -   Tools registered: 12
+2026-11-21 20:34:06.505 +00:00 | INFO     | core.startup:startup:77 -   Rules registered: 7
+2026-11-21 20:34:06.505 +00:00 | INFO     | core.startup:startup:78 -   Scheduler jobs:   5
+2026-11-21 20:34:06.505 +00:00 | INFO     | core.startup:startup:79 - ==================================================
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)

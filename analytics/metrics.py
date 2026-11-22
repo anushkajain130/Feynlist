@@ -20,6 +20,7 @@ from typing import Optional
 
 from core.models import Task, DailyMetrics, TaskClass
 from config.settings import settings
+from core import clock
 
 
 # =============================================================================
@@ -28,34 +29,35 @@ from config.settings import settings
 
 class AlertnessMetric:
     """
-    Measures how focused/attentive the user was during completed tasks.
+    Focus quality: how attentive the user says they were on the tasks they rated.
+
+    Intended behaviour (decided 2026-11-21, see evals/EVALS.md):
+        Alertness answers "when I worked, how focused was I?". It is deliberately
+        separate from Discipline (did I start?) and completion (did I finish?), so
+        unfinished or future tasks do NOT lower it.
 
     Formula:
-        raw = sum(slider_val for past tasks) / sum(points*0.2 for past tasks) * 100
-        today_score = raw (clamped 0–100)
-        final = yesterday_weight * yesterday + today_weight * today_score
-            where today_weight=0.85, yesterday_weight=0.15
+        rated = tasks where Be Attentive is checked (the attention slider was used)
+        raw   = sum(slider_val/100 * points for rated) / sum(points for rated) * 100
+        final = 0.85 * raw + 0.15 * yesterday   (only if both days have ratings)
 
-    "Past tasks" = tasks whose end_time is before or equal to current time.
-    This is the key bug fix from V0 — V0 used `if True:` which included future tasks.
+    If no task has been rated yet today, Alertness is 0.0 and means "no data"
+    (the burnout heuristic ignores such days).
 
     Scale: 0–100 (higher = more focused)
     """
 
     @staticmethod
-    def compute_raw(tasks: list[Task], now: time) -> float:
-        """
-        Compute raw alertness based on attention quality across all completed tasks
-        relative to the total available points for the day.
-        
-        Formula:
-            Overall Alertness = Sum( (slider_val / 100.0) * points for completed tasks ) / Sum( points for all tasks ) * 100
-        """
-        denominator = sum(t.points for t in tasks)
+    def rated_tasks(tasks: list[Task]) -> list[Task]:
+        return [t for t in tasks if t.be_attentive]
+
+    @staticmethod
+    def compute_raw(tasks: list[Task], now: Optional[time] = None) -> float:
+        rated = AlertnessMetric.rated_tasks(tasks)
+        denominator = sum(t.points for t in rated)
         if denominator <= 0:
             return 0.0
-
-        numerator = sum((t.slider_val / 100.0) * t.points for t in tasks if t.completed)
+        numerator = sum((t.slider_val / 100.0) * t.points for t in rated)
         return min(100.0, (numerator / denominator) * 100.0)
 
     @staticmethod
@@ -64,13 +66,11 @@ class AlertnessMetric:
         yesterday: Optional[DailyMetrics] = None,
         now: Optional[time] = None,
     ) -> float:
-        """
-        Compute EWM-weighted alertness score for today.
-        """
-        if now is None:
-            now = datetime.now().time()
+        """EWM-weighted alertness for the day (0.0 when nothing is rated yet)."""
+        if not AlertnessMetric.rated_tasks(tasks):
+            return 0.0
 
-        raw = AlertnessMetric.compute_raw(tasks, now)
+        raw = AlertnessMetric.compute_raw(tasks)
 
         if yesterday is None or yesterday.alertness == 0.0:
             return round(raw, 4)
@@ -97,14 +97,16 @@ class DisciplineMetric:
         final = 0.95 * today + 0.05 * yesterday
 
     A task's Start_and_Sit points = 50% of task.points.
-    Only counts past tasks (end_time <= now).
+    Only counts tasks that have ended by `now` (blocks crossing midnight, such
+    as Sleep 22:00–06:00, have not ended on their own date). For a day that is
+    already over (`day_over=True`), every task counts.
 
     Scale: 0–100 (higher = more disciplined)
     """
 
     @staticmethod
-    def compute_raw(tasks: list[Task], now: time) -> float:
-        past_tasks = [t for t in tasks if t.end_time_obj <= now]
+    def compute_raw(tasks: list[Task], now: time, day_over: bool = False) -> float:
+        past_tasks = [t for t in tasks if t.has_ended_by(now, day_over)]
 
         if not past_tasks:
             return 0.0
@@ -124,11 +126,12 @@ class DisciplineMetric:
         tasks: list[Task],
         yesterday: Optional[DailyMetrics] = None,
         now: Optional[time] = None,
+        day_over: bool = False,
     ) -> float:
         if now is None:
-            now = datetime.now().time()
+            now = clock.now().time()
 
-        raw = DisciplineMetric.compute_raw(tasks, now)
+        raw = DisciplineMetric.compute_raw(tasks, now, day_over)
 
         if yesterday is None or yesterday.discipline == 0.0:
             return round(raw, 4)
@@ -175,9 +178,17 @@ class AuraMetric:
     Composite performance score.
 
     Formula:
-        aura = (discipline/100)^0.5
-               * (ps_hrs / ps_target)^0.5
-               * log(1 + retention_streak)
+        aura = sqrt(discipline/100)
+               * sqrt(study_factor)
+               * ln(1 + consistency_streak)
+
+        study_factor = 0.2 + 0.8 * min(1, ps_hrs / ps_target)   if Study blocks are planned
+                     = 1.0                                       if no Study blocks are planned
+
+    Study factor choice (documented 2026-11-21): PS hours only come from
+    Academics_Selfstudy ("Study") blocks. Users who don't plan any Study blocks
+    (e.g. non-students) are not penalised; their Aura depends on discipline and
+    consistency only. If you plan Study blocks, finishing them raises Aura.
 
     Key fix from V0: using log(1+streak) instead of streak^0.5.
     V0's formula collapsed to 0 whenever streak=0 (first day, or reset day),
@@ -199,13 +210,18 @@ class AuraMetric:
         ps_hrs: float,
         retention_streak: int,
         ps_target: Optional[float] = None,
+        study_planned: bool = True,
     ) -> float:
         if ps_target is None:
             ps_target = settings.ps_hrs_target_per_3days / 3.0  # per-day target
 
         disc_factor = math.sqrt(max(0.0, discipline / 100.0))
-        # Prevent zero-collapse: provide a baseline factor of 0.2 when ps_hrs is 0, scaling up to 1.0 at target
-        ps_ratio = 0.2 + 0.8 * (min(1.0, ps_hrs / ps_target)) if ps_target > 0 else 1.0
+        # Study factor: 0.2 baseline rising to 1.0 at the daily target; neutral (1.0)
+        # when the plan has no Study blocks.
+        if not study_planned or ps_target <= 0:
+            ps_ratio = 1.0
+        else:
+            ps_ratio = 0.2 + 0.8 * (min(1.0, ps_hrs / ps_target))
         ps_factor = math.sqrt(max(0.0, ps_ratio))
         streak_factor = math.log(1 + max(0, retention_streak))
 
@@ -213,22 +229,63 @@ class AuraMetric:
 
 
 # =============================================================================
-# RETENTION STREAK
+# CONSISTENCY STREAK
 # =============================================================================
 
-class RetentionStreakMetric:
+class ConsistencyStreakMetric:
     """
-    Days since the user last triggered a streak-breaking event (relapse).
+    Consecutive days on which the user kept their commitment to their plan.
 
-    If today is a relapse day: streak = 0
-    Else: streak = yesterday_streak + 1
+    A day "counts" if EITHER:
+      - the user checked in with "I kept my commitment today", OR
+      - they completed at least `min_completion` (default 50%) of their planned tasks.
+
+    Rules:
+      - Checked in "Not today"            -> streak = 0
+      - Day counts                         -> streak = base + 1
+      - Day doesn't count, still in progress (today) -> streak = base (not broken yet)
+      - Day doesn't count and is over      -> streak = 0
+
+    `base` is yesterday's streak if yesterday counted, else 0
+    (see `day_counts` for evaluating a stored day).
+
+    The DB column is still named `retention_streak` for compatibility.
     """
 
     @staticmethod
-    def compute(relapsed: bool, yesterday_streak: int) -> int:
-        if relapsed:
-            return 0  # Streak broken today
-        return yesterday_streak + 1
+    def day_counts(
+        commitment_kept: Optional[bool],
+        tasks_completed: int,
+        tasks_total: int,
+        min_completion: Optional[float] = None,
+    ) -> bool:
+        if min_completion is None:
+            min_completion = settings.streak_min_completion
+        if commitment_kept is False:
+            return False
+        if commitment_kept is True:
+            return True
+        if tasks_total <= 0:
+            return False
+        return (tasks_completed / tasks_total) >= min_completion
+
+    @staticmethod
+    def compute(
+        yesterday_streak: int,
+        commitment_kept: Optional[bool],
+        tasks_completed: int,
+        tasks_total: int,
+        day_in_progress: bool,
+        min_completion: Optional[float] = None,
+    ) -> int:
+        base = max(0, yesterday_streak)
+        if commitment_kept is False:
+            return 0
+        if ConsistencyStreakMetric.day_counts(
+            commitment_kept, tasks_completed, tasks_total, min_completion
+        ):
+            return base + 1
+        return base if day_in_progress else 0
 
 
 # =============================================================================

@@ -2,21 +2,14 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Send, Wifi, WifiOff, Loader2 } from "lucide-react";
-import { WS_URL, api } from "@/lib/api";
+import { wsUrl, api } from "@/lib/api";
+import { AGENTS, TRIGGER_LABELS, type AgentKey } from "@/lib/agents";
+import SampleBadge from "@/components/SampleBadge";
+import type { AIBudget } from "@/lib/api";
 import { format } from "date-fns";
-import clsx from "clsx";
 
 // Agent personas
-const AGENTS = {
-  freya:   { name: "Freya",   color: "#7c5cfc", emoji: "⚔️",  desc: "Disciplinarian" },
-  albedo:  { name: "Albedo",  color: "#f472b6", emoji: "👑",  desc: "Provocateur" },
-  anya:    { name: "Anya",    color: "#34d399", emoji: "🌸",  desc: "Warmth" },
-  zerotwo: { name: "Zero Two",color: "#818cf8", emoji: "🎯",  desc: "Analyst" },
-  mohini:  { name: "Mohini", color: "#fbbf24", emoji: "🕉️",  desc: "Spiritual" },
-  council: { name: "Council", color: "#e8e8f0", emoji: "🏛️",  desc: "All together" },
-} as const;
 
-type AgentKey = keyof typeof AGENTS;
 
 interface ChatMessage {
   id: string;
@@ -30,6 +23,11 @@ interface ChatMessage {
   tokens_used?: number;
   model_used?: string;
   latency_ms?: number;
+  isSample?: boolean;
+  sampleLabel?: string | null;
+  sampleReason?: string | null;
+  proactive?: boolean;
+  triggeredBy?: string | null;
   debug?: {
     prompt_size: number;
     memory_count: number;
@@ -38,7 +36,7 @@ interface ChatMessage {
   } | null;
 }
 
-function AgentBubble({ msg }: { msg: ChatMessage }) {
+function AgentBubble({ msg, devMode }: { msg: ChatMessage; devMode: boolean }) {
   const agent = AGENTS[msg.agentId as AgentKey] ?? AGENTS.freya;
   const [showDebug, setShowDebug] = useState(false);
 
@@ -53,9 +51,14 @@ function AgentBubble({ msg }: { msg: ChatMessage }) {
       }}>{agent.emoji}</div>
       
       {/* Bubble */}
-      <div style={{ maxWidth: "78%", flex: 1 }}>
+      <div style={{ maxWidth: "85%", flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: "11px", color: agent.color, marginBottom: "4px", fontWeight: 600 }}>
           {msg.displayName ?? agent.name}
+          {msg.proactive && (
+            <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>
+              {" "}· nudge{msg.triggeredBy ? `: ${TRIGGER_LABELS[msg.triggeredBy] ?? msg.triggeredBy}` : ""}
+            </span>
+          )}
         </div>
         <div style={{
           background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)",
@@ -63,14 +66,16 @@ function AgentBubble({ msg }: { msg: ChatMessage }) {
           fontSize: "13px", lineHeight: 1.6, color: "var(--text)",
           whiteSpace: "pre-wrap",
         }}>{msg.content}</div>
+        {msg.isSample && <SampleBadge label={msg.sampleLabel} reason={msg.sampleReason} />}
 
-        {/* Token Auditing Stats Bar */}
+        {/* Token usage per reply (always shown); breakdown + debug only in developer mode */}
         {msg.tokens_used !== undefined && msg.tokens_used > 0 && (
           <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "6px", flexWrap: "wrap" }}>
             <span style={{ fontSize: "10px", color: "var(--text-muted)", background: "rgba(255,255,255,0.03)", padding: "2px 6px", borderRadius: "4px", border: "1px solid rgba(255,255,255,0.02)" }}>
-              Total: <strong style={{ color: "var(--text)" }}>{msg.tokens_used}</strong> tokens · Input: {msg.input_tokens} · Output: {msg.output_tokens} · {msg.latency_ms}ms · {msg.model_used?.split("/").pop()}
+              <strong style={{ color: "var(--text)" }}>{msg.tokens_used}</strong> tokens
+              {devMode && <> · Input: {msg.input_tokens} · Output: {msg.output_tokens} · {msg.latency_ms}ms · {msg.model_used?.split("/").pop()}</>}
             </span>
-            <button 
+            {devMode && <button 
               onClick={() => setShowDebug(!showDebug)}
               style={{
                 background: "transparent", border: "none", color: "var(--accent-2)", cursor: "pointer",
@@ -78,12 +83,12 @@ function AgentBubble({ msg }: { msg: ChatMessage }) {
               }}
             >
               {showDebug ? "Hide Debug" : "Inspect Debug Panel"}
-            </button>
+            </button>}
           </div>
         )}
 
         {/* Developer Debug Panel */}
-        {showDebug && msg.debug && (
+        {devMode && showDebug && msg.debug && (
           <div className="glass fade-in" style={{
             marginTop: "8px", padding: "12px", fontSize: "11px", fontFamily: "monospace",
             background: "rgba(10, 10, 15, 0.95)", border: "1px solid rgba(124, 92, 252, 0.2)",
@@ -108,7 +113,7 @@ function AgentBubble({ msg }: { msg: ChatMessage }) {
                 <div style={{ display: "flex", flexDirection: "column", gap: "4px", maxHeight: "120px", overflowY: "auto", paddingRight: "4px" }}>
                   {msg.debug.retrieved_memories.map((m, i) => (
                     <div key={i} style={{ padding: "4px 8px", background: "rgba(255,255,255,0.02)", borderLeft: "2px solid var(--accent)", color: "var(--text-muted)", fontSize: "10.5px" }}>
-                      "{m}"
+                      &quot;{m}&quot;
                     </div>
                   ))}
                 </div>
@@ -153,6 +158,8 @@ export default function CouncilPage() {
   const [loading, setLoading] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<AgentKey>("freya");
   const [tokensToday, setTokensToday] = useState(0);
+  const [budget, setBudget] = useState<AIBudget | null>(null);
+  const [devMode, setDevMode] = useState(false); // developer details hidden by default
   const wsRef = useRef<WebSocket | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -169,15 +176,25 @@ export default function CouncilPage() {
     }
   }, []);
 
+  // Live replies left / sample mode (the free-tier budget lives on the server)
+  const refreshBudget = useCallback(() => {
+    api.agents.budget().then(setBudget).catch(() => setBudget(null));
+  }, []);
+  useEffect(() => { refreshBudget(); }, [connected, refreshBudget]);
+
   // Auto-scroll
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    // Scroll only the chat list (scrollIntoView would also scroll the whole page on phones)
+    const list = bottomRef.current?.parentElement;
+    if (list) list.scrollTop = list.scrollHeight;
   }, [messages]);
 
   // WebSocket connection
   useEffect(() => {
-    fetchTokensToday();
-    const ws = new WebSocket(WS_URL);
+    api.agents.tokensToday()
+      .then(res => setTokensToday(res.total_tokens_today))
+      .catch(e => console.error("Failed to fetch today's token usage", e));
+    const ws = new WebSocket(wsUrl());
     wsRef.current = ws;
 
     ws.onopen = () => {
@@ -207,8 +224,14 @@ export default function CouncilPage() {
           model_used: data.model_used || "",
           latency_ms: data.latency_ms || 0,
           debug: data.debug || null,
+          isSample: !!data.is_sample,
+          sampleLabel: data.sample_label,
+          sampleReason: data.sample_reason,
+          proactive: !!data.proactive,
+          triggeredBy: data.triggered_by,
         });
         fetchTokensToday();
+        refreshBudget();
       } else if (data.type === "error") {
         addMsg({ type: "error", content: data.message, timestamp: new Date() });
       }
@@ -221,11 +244,11 @@ export default function CouncilPage() {
 
     ws.onerror = () => {
       setConnected(false);
-      addMsg({ type: "status", content: "Backend not running. Start it with: uvicorn api.main:app --reload", timestamp: new Date() });
+      addMsg({ type: "status", content: "Can't reach the Feynlist server. If it was idle it may be waking up (up to a minute); refresh to reconnect.", timestamp: new Date() });
     };
 
     return () => ws.close();
-  }, [addMsg, fetchTokensToday]);
+  }, [addMsg, fetchTokensToday, refreshBudget]);
 
   const send = useCallback(() => {
     const text = input.trim();
@@ -257,18 +280,44 @@ export default function CouncilPage() {
   }, {} as Record<string, { calls: number; totalTokens: number; avgTokens: number }>);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", padding: "24px", gap: "16px", maxWidth: "1500px", margin: "0 auto", width: "100%" }}>
+    <div className="council-page">
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
         <div>
           <div style={{ fontSize: "12px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em" }}>The</div>
           <h1 style={{ fontSize: "28px", fontWeight: 700 }} className="gradient-text">Council</h1>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: connected ? "#34d399" : "#6b6b80" }}>
-          {connected ? <Wifi size={14} /> : <WifiOff size={14} />}
-          {connected ? "Live" : "Offline"}
+        <div style={{ display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11px", color: "var(--text-muted)", cursor: "pointer" }}>
+            <input type="checkbox" checked={devMode} onChange={e => setDevMode(e.target.checked)} />
+            Developer details
+          </label>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px",
+            color: !connected ? "#6b6b80" : budget?.mode === "sample" ? "#fbbf24" : "#34d399" }}>
+            {connected ? <Wifi size={14} /> : <WifiOff size={14} />}
+            {!connected ? "Offline" : "Connected"}
+          </div>
         </div>
       </div>
+
+      {/* Free-tier budget + data notice */}
+      {budget && (
+        <div className="glass" style={{ padding: "10px 14px", fontSize: "12px", lineHeight: 1.5, display: "flex", flexWrap: "wrap", gap: "4px 16px", alignItems: "center" }}>
+          <strong style={{ color: budget.mode === "sample" ? "#fbbf24" : "#34d399" }}>
+            {!budget.ai_configured
+              ? "Showing sample replies (no live AI on this server)."
+              : budget.live_limit === null
+                ? (budget.daily_cap_reached ? "Showing sample replies (daily live limit reached)." : "Live replies on.")
+                : budget.live_left && budget.live_left > 0 && !budget.daily_cap_reached
+                  ? `Live replies left: ${budget.live_left} of ${budget.live_limit}`
+                  : "Showing sample replies."}
+          </strong>
+          <span style={{ color: "var(--text-muted)" }}>{budget.notice}</span>
+          {!budget.council_live && (
+            <span style={{ color: "var(--text-muted)" }}>&quot;Council&quot; (all five) shows sample replies in this demo.</span>
+          )}
+        </div>
+      )}
 
       {/* Agent selector */}
       <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
@@ -295,13 +344,13 @@ export default function CouncilPage() {
       </div>
 
       {/* Split layout: Chat Area + Audit Dashboard */}
-      <div style={{ display: "flex", flex: 1, gap: "16px", overflow: "hidden", minHeight: 0 }}>
+      <div className="council-body">
         {/* Main Chat Area */}
-        <div className="glass" style={{ flex: 3, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+        <div className="glass council-chat">
           <div style={{ flex: 1, overflowY: "auto", padding: "20px", display: "flex", flexDirection: "column", gap: "16px" }}>
             {messages.map(msg => {
               if (msg.type === "user") return <UserBubble key={msg.id} msg={msg} />;
-              if (msg.type === "agent") return <AgentBubble key={msg.id} msg={msg} />;
+              if (msg.type === "agent") return <AgentBubble key={msg.id} msg={msg} devMode={devMode} />;
               return (
                 <div key={msg.id} style={{ textAlign: "center", fontSize: "11px", color: "var(--text-muted)", padding: "4px" }}>
                   {msg.content}
@@ -353,10 +402,10 @@ export default function CouncilPage() {
         </div>
 
         {/* Token Auditing Dashboard (Right Column) */}
-        <div className="glass" style={{
-          flex: 1, padding: "16px", display: "flex", flexDirection: "column", gap: "20px",
+        <div className="glass council-side" style={{
+          padding: "16px", display: "flex", flexDirection: "column", gap: "20px",
           background: "rgba(17,17,24,0.7)", border: "1px solid var(--border)",
-          overflowY: "auto", minWidth: "280px"
+          overflowY: "auto",
         }}>
           <div>
             <h2 style={{ fontSize: "11px", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "10px" }}>
@@ -368,7 +417,7 @@ export default function CouncilPage() {
                 <div style={{ fontSize: "20px", fontWeight: 700, color: "var(--accent)", marginTop: "2px" }}>{sessionTotalTokens.toLocaleString()} <span style={{ fontSize: "11px", fontWeight: 400, color: "var(--text-muted)" }}>t</span></div>
               </div>
               <div className="glass" style={{ padding: "10px 12px", background: "rgba(255,255,255,0.015)" }}>
-                <div style={{ fontSize: "9px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Today's Accumulated Total</div>
+                <div style={{ fontSize: "9px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Today&apos;s Accumulated Total</div>
                 <div style={{ fontSize: "20px", fontWeight: 700, color: "var(--accent-2)", marginTop: "2px" }}>{tokensToday.toLocaleString()} <span style={{ fontSize: "11px", fontWeight: 400, color: "var(--text-muted)" }}>t</span></div>
               </div>
             </div>

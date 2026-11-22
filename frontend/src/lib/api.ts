@@ -3,22 +3,42 @@
  * Typed wrappers for every backend endpoint.
  */
 
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+import { getSessionId, getTimeZone, sessionHeaders } from "./session";
+
+const BASE = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/+$/, "");
+export const API_BASE = BASE;
+
+/** Error carrying the server's friendly `detail` message (never raw provider text). */
+export class ApiError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+  }
+}
+
+async function handle<T>(res: Response, label: string): Promise<T> {
+  if (!res.ok) {
+    let detail = `${label} → ${res.status}`;
+    try {
+      const body = await res.json();
+      if (typeof body?.detail === "string") detail = body.detail;
+    } catch { /* not JSON */ }
+    throw new ApiError(res.status, detail);
+  }
+  return res.json();
+}
 
 async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, { cache: "no-store" });
-  if (!res.ok) throw new Error(`GET ${path} → ${res.status}`);
-  return res.json();
+  const res = await fetch(`${BASE}${path}`, { cache: "no-store", headers: sessionHeaders() });
+  return handle<T>(res, `GET ${path}`);
 }
 
 async function post<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    headers: { "Content-Type": "application/json", ...sessionHeaders() },
+    body: JSON.stringify(body ?? {}),
   });
-  if (!res.ok) throw new Error(`POST ${path} → ${res.status}`);
-  return res.json();
+  return handle<T>(res, `POST ${path}`);
 }
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -60,7 +80,8 @@ export interface DailyMetrics {
   tasks_total: number;
   completion_rate: number;
   has_data: boolean;
-  relapsed: boolean;
+  /** Daily check-in: null = not answered, true = kept commitment, false = "not today" */
+  kept_commitment: boolean | null;
 }
 
 export interface TrendResponse {
@@ -96,6 +117,9 @@ export interface AgentMessage {
   timestamp: string;
   triggered_by: string | null;
   tool_used: string | null;
+  is_sample: boolean;
+  sample_label: string | null;
+  sample_reason: string | null;
 }
 
 export interface CouncilResponse {
@@ -105,6 +129,7 @@ export interface CouncilResponse {
 
 export interface AgentStatus {
   agents: Record<string, { ready: boolean; seconds_until_ready: number }>;
+  ai_configured: boolean;
 }
 
 export interface HealthResponse {
@@ -144,19 +169,71 @@ export const api = {
       get<TrendResponse>(`/api/analytics/trends/${metric}?days=${days}`),
     weekly: () => get<WeeklySummary>("/api/analytics/summary/week"),
     burnout: () => get<BurnoutSignal>("/api/analytics/burnout"),
-    checkIn: (relapsed: boolean, date?: string) =>
-      post<DailyMetrics>("/api/analytics/check-in", { relapsed, date }),
+    checkIn: (keptCommitment: boolean, date?: string) =>
+      post<DailyMetrics>("/api/analytics/check-in", { kept_commitment: keptCommitment, date }),
   },
   agents: {
     sendMessage: (message: string, agentId?: string) =>
       post<CouncilResponse>("/api/agents/message", { message, agent_id: agentId }),
     status: () => get<AgentStatus>("/api/agents/status"),
     tokensToday: () => get<{ total_tokens_today: number }>("/api/agents/tokens/today"),
+    nudges: (limit = 5) => get<{ nudges: Nudge[] }>(`/api/agents/nudges?limit=${limit}`),
+    budget: () => get<AIBudget>("/api/agents/budget"),
+  },
+  demo: {
+    status: () => get<DemoStatus>("/api/demo/status"),
+    reset: () => post<{ reset: boolean }>("/api/demo/reset", {}),
+    loadSample: () => post<{ loaded_days: number }>("/api/demo/load-sample", {}),
+    trigger: (kind: DemoTrigger) => post<DemoTriggerResult>(`/api/demo/trigger/${kind}`, {}),
   },
   health: () => get<HealthResponse>("/health"),
 };
 
+// ─── Demo ─────────────────────────────────────────────────────────────────────
+
+export interface Nudge {
+  id: string;
+  agent_id: string;
+  content: string;
+  triggered_by: string;
+  model_used: string;
+  timestamp: string;
+  is_sample: boolean;
+  sample_label: string | null;
+  sample_reason: string | null;
+}
+
+export interface AIBudget {
+  ai_configured: boolean;
+  live_limit: number | null;   // null = no per-session limit (single-user mode)
+  live_left: number | null;
+  daily_cap_reached: boolean;
+  mode: "live" | "sample";
+  council_live: boolean;
+  notice: string;
+}
+
+export interface DemoStatus {
+  demo_mode: boolean;
+  sample_data: boolean;
+  today: string;
+  notice: string | null;
+}
+
+export type DemoTrigger = "missed-task" | "complete-task" | "end-of-day" | "check-in";
+
+export interface DemoTriggerResult {
+  kind: DemoTrigger;
+  detail: string;
+  cooldowns_bypassed?: boolean;
+  messages: { id: string; agent_id: string; display_name: string; content: string; triggered_by: string | null; is_sample: boolean }[];
+}
+
 // ─── WebSocket ────────────────────────────────────────────────────────────────
 
-export const WS_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000")
-  .replace("http", "ws") + "/api/agents/ws";
+/** Websocket URL carrying the session id and time zone (headers can't be set on a browser websocket). */
+export function wsUrl(): string {
+  const base = BASE.replace(/^http/, "ws");
+  const q = new URLSearchParams({ session: getSessionId(), tz: getTimeZone() });
+  return `${base}/api/agents/ws?${q.toString()}`;
+}

@@ -2,14 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, BarChart3, MessageSquare, Settings } from "lucide-react";
-import clsx from "clsx";
+import { LayoutDashboard, BarChart3, MessageSquare, Info } from "lucide-react";
 
 const nav = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/council", label: "Council", icon: MessageSquare },
-  { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/about", label: "About", icon: Info },
 ];
 
 export default function Sidebar() {
@@ -17,20 +16,15 @@ export default function Sidebar() {
 
   return (
     <aside
+      className="sidebar"
       style={{
-        width: "72px",
         background: "var(--surface)",
         borderRight: "1px solid var(--border)",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        padding: "24px 0",
-        gap: "8px",
-        flexShrink: 0,
       }}
     >
       {/* Logo */}
       <div
+        className="sidebar-logo"
         style={{
           width: "40px",
           height: "40px",
@@ -56,6 +50,7 @@ export default function Sidebar() {
             key={href}
             href={href}
             title={label}
+            aria-label={label}
             style={{
               width: "48px",
               height: "48px",

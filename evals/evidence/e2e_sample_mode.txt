@@ -1,0 +1,6 @@
+council budget line: Showing sample replies (no live AI on this server).
+free-API notice shown: true
+chat reply (Freya): ⚔️ Freya You're at 7 of 12 blocks today. Pick the next one and start it on time, that's all. Sample reply (pre-written, not live) Live AI isn't set up on this server, so this is a pre-written sample reply. 22:08
+demo control result: Marked 'Exercise or a walk' as missed. Freya (sample reply) replied; see Council nudges.
+nudges panel: Council nudges ⚔️ Freya · Missed task 'Exercise or a walk' didn't get started. Move it to your next free slot and keep it short, 30 to 45 minutes. Sample reply (pre-written, not live) Live AI isn't set up on this server, so this is a pre-written sample reply.
+page errors: none

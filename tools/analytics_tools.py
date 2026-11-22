@@ -21,6 +21,7 @@ from core.exceptions import ToolExecutionError
 from data.repositories.analytics_repo import analytics_repo
 from analytics.trends import trend_analyzer
 from tools.base_tool import BaseTool, ToolContext
+from core import clock
 
 
 # =============================================================================
@@ -63,7 +64,7 @@ class GetDailyMetricsTool(BaseTool):
             target = (
                 date.fromisoformat(input.target_date)
                 if input.target_date
-                else date.today()
+                else clock.today()
             )
             metrics = await analytics_repo.get_metrics_for_date(target)
         except Exception as e:
@@ -175,16 +176,16 @@ class GetPercentileInput(BaseModel):
 class GetPercentileOutput(BaseModel):
     metric: str
     value: float
-    percentile: float
+    percentile: Optional[float]  # None when there isn't enough history
     interpretation: str
 
 
 class GetPercentileTool(BaseTool):
     name = "get_percentile"
     description = (
-        "Returns what percentile today's score is, relative to all historical records. "
-        "Use this to tell the user how they compare to their own history "
-        "(e.g., 'You're in your top 15% for discipline today')."
+        "Returns what percentile today's score is, relative to the user's own history. "
+        "Needs at least 14 days of history; otherwise it says so and you must not "
+        "make any comparison to past days."
     )
     input_schema = GetPercentileInput
     output_schema = GetPercentileOutput
@@ -195,7 +196,7 @@ class GetPercentileTool(BaseTool):
         try:
             value = input.value
             if value is None:
-                today_metrics = await analytics_repo.get_metrics_for_date(date.today())
+                today_metrics = await analytics_repo.get_metrics_for_date(clock.today())
                 if today_metrics:
                     value = getattr(today_metrics, input.metric, 0.0)
                 else:
@@ -205,7 +206,12 @@ class GetPercentileTool(BaseTool):
         except Exception as e:
             raise ToolExecutionError(f"Failed to compute percentile: {e}") from e
 
-        if percentile >= 90:
+        if percentile is None:
+            interpretation = (
+                f"Not enough history yet (needs {trend_analyzer.MIN_DAYS_FOR_PERCENTILE} days). "
+                "Don't compare today to past days."
+            )
+        elif percentile >= 90:
             interpretation = f"Exceptional. Top {100 - percentile:.0f}% of all your days."
         elif percentile >= 75:
             interpretation = f"Strong day. Better than {percentile:.0f}% of your history."

@@ -1,0 +1,14 @@
+  [PASS] health: HTTP 200 {"status":"healthy","db_ok":true,"scheduler_running":true,"agents_ready":0,"vers after 0s
+  [PASS] demo mode on: {"demo_mode":true,"sample_data":true,"today":"2026-11-22","notice":"Demo mode: this session uses sample data (about two 
+  [PASS] sample plan seeded: 12 tasks today
+  [PASS] sample history: 14 days
+  [PASS] task toggle updates analytics: points 0 -> 30
+  [PASS] coach reply: SAMPLE (Live AI isn't set up on this server, so this is a pre-written sample reply.): You're at 0 of 12 blocks today. Pick the next one and start it on time, that's all.
+  [PASS] budget endpoint: {"ai_configured":false,"live_limit":2,"live_left":2,"daily_cap_reached":false,"mode":"sample","council_live":false,"notice":"Live replies use a free Google API;
+  [PASS] requests without a session refused: HTTP 400
+  [PASS] CORS allows the frontend: allow-origin=http://localhost:3000
+  [PASS] CORS blocks other sites: allow-origin=None
+  [PASS] frontend loads: HTTP 200
+  [PASS] websocket connects: ws://127.0.0.1:8000/api/agents/ws -> {'type': 'status', 'message': 'Connected to Feynlist Council.'}
+
+12 passed, 0 failed

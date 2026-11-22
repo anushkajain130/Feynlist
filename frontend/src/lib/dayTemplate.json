@@ -1,0 +1,14 @@
+[
+  { "name": "Morning stretch & breakfast", "start_time": "07:30", "end_time": "08:00", "task_class": "Yoga_and_Wellness", "sub_class": null },
+  { "name": "Study: hardest subject first", "start_time": "08:00", "end_time": "09:30", "task_class": "Academics_Selfstudy", "sub_class": null },
+  { "name": "Short break", "start_time": "09:30", "end_time": "09:45", "task_class": "Break", "sub_class": null },
+  { "name": "Classes / lectures", "start_time": "09:45", "end_time": "12:00", "task_class": "Academic_Classes", "sub_class": null },
+  { "name": "Lunch", "start_time": "12:00", "end_time": "13:00", "task_class": "Break", "sub_class": null },
+  { "name": "Study: practice problems", "start_time": "13:00", "end_time": "14:30", "task_class": "Academics_Selfstudy", "sub_class": null },
+  { "name": "Break", "start_time": "14:30", "end_time": "15:00", "task_class": "Break", "sub_class": null },
+  { "name": "Project / assignment work", "start_time": "15:00", "end_time": "16:30", "task_class": "Project", "sub_class": null },
+  { "name": "Exercise or a walk", "start_time": "17:00", "end_time": "18:00", "task_class": "Yoga_and_Wellness", "sub_class": null },
+  { "name": "Reading", "start_time": "20:00", "end_time": "21:00", "task_class": "Book_Reading", "sub_class": null },
+  { "name": "Plan tomorrow & wind down", "start_time": "21:00", "end_time": "21:30", "task_class": "Break", "sub_class": null },
+  { "name": "Sleep", "start_time": "23:00", "end_time": "07:00", "task_class": "Sleep", "sub_class": null }
+]

@@ -37,10 +37,14 @@ class Database:
     Use db.connection() as a context manager for all queries.
     """
 
-    def __init__(self):
-        self._db_path: Path = settings.database_path
+    def __init__(self, db_path: Path | None = None):
+        self._db_path: Path = db_path or settings.database_path
         self._lock = asyncio.Lock()
         self._initialized = False
+
+    def is_initialized(self) -> bool:
+        """True once migrations have run (used by /health)."""
+        return self._initialized
 
     async def initialize(self) -> None:
         """
@@ -208,6 +212,76 @@ def dump_json_field(value) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Singleton instance — import this everywhere
+# Per-session databases (demo mode)
 # ---------------------------------------------------------------------------
-db = Database()
+
+class SessionDatabases:
+    """
+    One SQLite file per evaluator session, under DEMO_DATA_DIR (ephemeral storage
+    is fine: sessions are throwaway). Least-recently-used sessions beyond
+    DEMO_MAX_SESSIONS are evicted and their files deleted.
+    """
+
+    def __init__(self):
+        from collections import OrderedDict
+        self._dbs: "OrderedDict[str, Database]" = OrderedDict()
+
+    def path_for(self, session_id: str) -> Path:
+        return Path(settings.demo_data_dir) / f"session-{session_id}.db"
+
+    def get(self, session_id: str) -> tuple[Database, bool]:
+        """Return (database, created_now)."""
+        if session_id in self._dbs:
+            self._dbs.move_to_end(session_id)
+            return self._dbs[session_id], False
+        database = Database(self.path_for(session_id))
+        existed = database._db_path.exists()
+        self._dbs[session_id] = database
+        self._evict()
+        return database, not existed
+
+    def drop(self, session_id: str) -> None:
+        """Forget a session and delete its database files."""
+        self._dbs.pop(session_id, None)
+        base = self.path_for(session_id)
+        for suffix in ("", "-wal", "-shm"):
+            Path(str(base) + suffix).unlink(missing_ok=True)
+
+    def _evict(self) -> None:
+        while len(self._dbs) > settings.demo_max_sessions:
+            old_id, _ = self._dbs.popitem(last=False)
+            self.drop(old_id)
+            logger.info(f"SessionDatabases: evicted session {old_id[:8]}…")
+
+    def __len__(self) -> int:
+        return len(self._dbs)
+
+
+session_databases = SessionDatabases()
+
+# The database used outside demo sessions (local single-user mode, scheduler, scripts).
+default_db = Database()
+
+
+class _DatabaseProxy:
+    """
+    `db` used by every repository. Resolves to the current request's session
+    database when a demo session is active, otherwise to `default_db`.
+    """
+
+    def _target(self) -> Database:
+        from core.session import current_session_id
+        sid = current_session_id.get()
+        if sid is None:
+            return default_db
+        return session_databases.get(sid)[0]
+
+    def __getattr__(self, name):
+        return getattr(self._target(), name)
+
+    def __setattr__(self, name, value):
+        setattr(self._target(), name, value)
+
+
+# Import this everywhere
+db = _DatabaseProxy()

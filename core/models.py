@@ -21,6 +21,15 @@ from pydantic import BaseModel, Field, computed_field, model_validator
 # =============================================================================
 
 
+# Points per block, by class (used when a plan is saved).
+CLASS_POINTS: dict[str, int] = {
+    "Academics_Selfstudy": 100, "Academic_Classes": 80, "Project": 90,
+    "Work": 85, "Side_Business": 80, "Book_Reading": 70,
+    "Yoga_and_Wellness": 60, "Self_Growth": 65, "ExtraActi": 50,
+    "Social": 40, "Break": 20, "Sleep": 10, "Unspecified": 30,
+}
+
+
 class TaskClass(str, Enum):
     """All valid task classification categories."""
 
@@ -38,52 +47,12 @@ class TaskClass(str, Enum):
     DEVIATED = "Deviated"
     SELF_GROWTH = "Self_Growth"
     WORK = "Work"
-    LEVEL_UP = "level_up"
-    LEVEL_DOWN = "level_down"
     REVIVED = "revived"
 
     @classmethod
     def _missing_(cls, value: object) -> "TaskClass":
         """Gracefully handle unknown class names from legacy data."""
         return cls.UNSPECIFIED
-
-
-class DeviatedSubClass(str, Enum):
-    """Specific sub-classifications for Deviated tasks."""
-
-    PHONE_URGE = "D_by_phone_urge"
-    ALARM_FAIL_MIDDAY = "D_by_alarm_fail_midday"
-    FAMILY_OBJ = "D_by_family_obj"
-    ALARM_FAIL_STARTDAY = "D_by_alarm_fail_startday"
-    RESISTANCE_TO_TASK = "D_by_resistance_to_task"
-    LACK_TIME_AWARENESS = "D_by_lack_time_awareness"
-    MEANINGLESS_INDISCIPLINE = "D_by_meaningless_indicipline"
-    UNPLANNED_SLEEP_EXHAUSTED = "D_by_unplanned_sleep_exhausted"
-    UNPLANNED_FL = "D_by_unplanned_FL"
-    TAMAS_OVERLOAD = "D_by_Tamas_overload"
-    EXTREME_UNEASE = "D_by_extreme_unease"
-    NO_ENERGY = "DE_by_no_energy"
-    SADNESS_OF_INACTIVITY = "DE_by_sadness_of_inactivity"
-    FEAR_OF_FAILURE = "DE_by_fear_of_failure"
-    FEAR_OF_FAILURE_CONFRONTATION = "DE_by_fear_of_failure_confrontation"
-
-
-class RevivedSubClass(str, Enum):
-    """Sub-classifications for Revived tasks."""
-
-    PHONE_LOCK = "R_Phone_lock"
-    EGO = "R_Ego"
-    SLEEPING_POSTURE = "R_Sleeping_posture"
-    BRAIN_CONDITIONING = "R_Brain_conditioning"
-
-
-class UserTier(str, Enum):
-    """Subscription tier for the user."""
-
-    FREE = "free"
-    PRO = "pro"
-    ULTRA = "ultra"
-    ENTERPRISE = "enterprise"
 
 
 class EventType(str, Enum):
@@ -249,13 +218,32 @@ class Task(BaseModel):
     def is_revived(self) -> bool:
         return self.task_class == TaskClass.REVIVED
 
+    @property
+    def ends_next_day(self) -> bool:
+        """True for blocks that cross midnight, e.g. Sleep 22:00–06:00 (ends the next day)."""
+        return self.end_time_obj < self.start_time_obj
+
     def is_active_at(self, t: time) -> bool:
-        """Returns True if this task's time window contains time t."""
+        """True if time t (on this task's own date) falls inside the block."""
+        if self.ends_next_day:
+            return t >= self.start_time_obj
         return self.start_time_obj <= t <= self.end_time_obj
 
     def is_past_at(self, t: time) -> bool:
-        """Returns True if this task ended before time t."""
+        """True if the block ended before time t on its own date.
+        A block that crosses midnight never ends on its own date."""
+        if self.ends_next_day:
+            return False
         return self.end_time_obj < t
+
+    def has_ended_by(self, t: time, day_over: bool = False) -> bool:
+        """True if the block has finished by time t (inclusive). If the whole day is
+        over (a past date), every block counts as finished."""
+        if day_over:
+            return True
+        if self.ends_next_day:
+            return False
+        return self.end_time_obj <= t
 
 
 # =============================================================================
@@ -274,12 +262,13 @@ class DailyMetrics(BaseModel):
     discipline: float = 0.0         # 0–100: % of Start_and_Sit completed
     ps_hrs: float = 0.0             # Problem-solving hours (Academics tasks)
     aura: float = 0.0               # Composite: discipline × ps × streak
-    retention_streak: int = 0       # Consecutive "clean" days
+    retention_streak: int = 0       # Consistency streak: consecutive days the plan was kept
     happiness: float = 0.0          # User-reported (future feature)
     total_points: int = 0           # Raw points scored
     tasks_completed: int = 0
     tasks_total: int = 0
-    relapsed: bool = False
+    # Daily check-in: None = not answered, True = kept commitment, False = "not today"
+    commitment_kept: Optional[bool] = None
     computed_at: datetime = Field(default_factory=datetime.now)
 
     @property
@@ -388,6 +377,9 @@ class AgentMessage(BaseModel):
     latency_ms: int = 0
     tool_used: Optional[str] = None   # Tool name if agent used a tool
     debug: Optional[dict] = None
+    # Sample mode: a pre-written reply shown instead of a live one (always labelled in the UI)
+    is_sample: bool = False
+    sample_reason: Optional[str] = None   # key of agents.ai_budget.SAMPLE_REASONS
 
     @model_validator(mode="after")
     def generate_id(self) -> "AgentMessage":
@@ -416,18 +408,6 @@ class ContextPacket(BaseModel):
 # =============================================================================
 # USER MODEL (future multi-user support)
 # =============================================================================
-
-
-class User(BaseModel):
-    """Represents one user of the system."""
-
-    id: str
-    display_name: str
-    tier: UserTier = UserTier.FREE
-    created_at: datetime = Field(default_factory=datetime.now)
-    timezone: str = "Asia/Kolkata"
-    daily_interactions_used: int = 0
-    last_active: Optional[datetime] = None
 
 
 # =============================================================================

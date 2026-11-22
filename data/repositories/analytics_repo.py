@@ -13,6 +13,7 @@ from loguru import logger
 
 from core.models import DailyMetrics, HourlyPoint
 from data.database import db
+from core import clock
 
 
 class AnalyticsRepository:
@@ -55,7 +56,7 @@ class AnalyticsRepository:
     async def get_yesterday_metrics(self) -> Optional[DailyMetrics]:
         """Convenience: fetch yesterday's analytics for EWM weighting."""
         from datetime import timedelta
-        yesterday = date.today() - timedelta(days=1)
+        yesterday = clock.today() - timedelta(days=1)
         return await self.get_metrics_for_date(yesterday)
 
     async def upsert_metrics(self, metrics: DailyMetrics) -> None:
@@ -66,8 +67,8 @@ class AnalyticsRepository:
                 INSERT INTO daily_analytics (
                     date, alertness, discipline, ps_hrs, aura,
                     retention_streak, happiness, total_points,
-                    tasks_completed, tasks_total, relapsed, computed_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                    tasks_completed, tasks_total, relapsed, commitment_kept, computed_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
                 ON CONFLICT(date) DO UPDATE SET
                     alertness        = excluded.alertness,
                     discipline       = excluded.discipline,
@@ -79,6 +80,7 @@ class AnalyticsRepository:
                     tasks_completed  = excluded.tasks_completed,
                     tasks_total      = excluded.tasks_total,
                     relapsed         = excluded.relapsed,
+                    commitment_kept  = excluded.commitment_kept,
                     computed_at      = datetime('now')
                 """,
                 (
@@ -92,7 +94,8 @@ class AnalyticsRepository:
                     metrics.total_points,
                     metrics.tasks_completed,
                     metrics.tasks_total,
-                    int(metrics.relapsed),
+                    int(metrics.commitment_kept is False),  # legacy column, kept for compatibility
+                    None if metrics.commitment_kept is None else int(metrics.commitment_kept),
                 ),
             )
             await conn.commit()
@@ -100,7 +103,7 @@ class AnalyticsRepository:
 
     async def get_streak(self) -> int:
         """
-        Get current retention streak.
+        Get the current consistency streak.
         Returns the streak from the most recent analytics record.
         """
         row = await db.fetch_one(
@@ -150,7 +153,7 @@ class AnalyticsRepository:
         useful for identifying peak productivity windows.
         """
         from datetime import timedelta
-        cutoff = (date.today() - timedelta(days=lookback_days)).isoformat()
+        cutoff = (clock.today() - timedelta(days=lookback_days)).isoformat()
         rows = await db.fetch_all(
             """
             SELECT hour, AVG(points) as avg_pts
@@ -181,8 +184,18 @@ class AnalyticsRepository:
             total_points=d.get("total_points", 0),
             tasks_completed=d.get("tasks_completed", 0),
             tasks_total=d.get("tasks_total", 0),
-            relapsed=bool(d.get("relapsed", 0)),
+            commitment_kept=_commitment_from_row(d),
         )
+
+
+def _commitment_from_row(d: dict) -> Optional[bool]:
+    """Read the check-in answer; legacy rows only have `relapsed`."""
+    kept = d.get("commitment_kept")
+    if kept is not None:
+        return bool(kept)
+    if d.get("relapsed"):
+        return False
+    return None
 
 
 # Singleton

@@ -4,11 +4,13 @@ import { useState, useCallback } from "react";
 import { format } from "date-fns";
 import { CheckCircle2, Circle, Clock, Zap, Brain, Target, Flame, Plus, Trash2, Calendar, Sparkles, Check, X, ChevronDown, ChevronUp } from "lucide-react";
 import { api, Task, TaskListResponse, DailyMetrics } from "@/lib/api";
-import clsx from "clsx";
+import dayTemplate from "@/lib/dayTemplate.json";
 
 interface Props {
   initialTasks: TaskListResponse | null;
   initialMetrics: DailyMetrics | null;
+  /** Rendered under the page header (demo panel, nudges). */
+  topSlot?: React.ReactNode;
 }
 
 interface EditableTask {
@@ -31,45 +33,34 @@ const CLASS_COLORS: Record<string, string> = {
   Project: "#fbbf24",
   Work: "#f472b6",
   Yoga_and_Wellness: "#34d399",
-  Side_Business: "#a78bfa",
   Book_Reading: "#60a5fa",
-  Social: "#f97316",
   Break: "#6b7280",
   Sleep: "#4b5563",
-  Deviated: "#ef4444",
-  revived: "#10b981",
   Unspecified: "#9ca3af",
 };
 
+// Short, student-friendly class list. Older class values (e.g. Work, Unspecified) still
+// display correctly for existing data but aren't offered in the picker.
 const DEFAULT_CLASSES = [
-  { value: "Yoga_and_Wellness", label: "Yoga & Wellness" },
-  { value: "Academics_Selfstudy", label: "Academics Selfstudy" },
-  { value: "Academic_Classes", label: "Academic Classes" },
-  { value: "Project", label: "Project" },
-  { value: "Work", label: "Work" },
-  { value: "Side_Business", label: "Side Business" },
-  { value: "Book_Reading", label: "Book Reading" },
-  { value: "Social", label: "Social" },
+  { value: "Academics_Selfstudy", label: "Study" },
+  { value: "Academic_Classes", label: "Class" },
+  { value: "Project", label: "Project / Work" },
+  { value: "Book_Reading", label: "Reading" },
+  { value: "Yoga_and_Wellness", label: "Wellness" },
   { value: "Break", label: "Break" },
   { value: "Sleep", label: "Sleep" },
-  { value: "Self_Growth", label: "Self Growth" },
-  { value: "ExtraActi", label: "Extra Activity" },
-  { value: "Unspecified", label: "Unspecified" },
 ];
 
-const GUIDELINE_SCHEDULE: EditableTask[] = [
-  { name: "Yoga and Wellness", start_time: "06:00", end_time: "07:00", task_class: "Yoga_and_Wellness", sub_class: null },
-  { name: "Academics Selfstudy", start_time: "07:00", end_time: "09:00", task_class: "Academics_Selfstudy", sub_class: null },
-  { name: "Project Development", start_time: "09:00", end_time: "10:00", task_class: "Project", sub_class: null },
-  { name: "Academics Classes", start_time: "10:00", end_time: "12:00", task_class: "Academic_Classes", sub_class: null },
-  { name: "Midday Break & Lunch", start_time: "12:00", end_time: "13:00", task_class: "Break", sub_class: null },
-  { name: "Side Business Focus", start_time: "13:00", end_time: "15:00", task_class: "Side_Business", sub_class: null },
-  { name: "Afternoon Deep Work", start_time: "15:00", end_time: "17:00", task_class: "Academics_Selfstudy", sub_class: null },
-  { name: "Evening Social & Wellness", start_time: "17:00", end_time: "19:00", task_class: "Yoga_and_Wellness", sub_class: null },
-  { name: "Dinner & Winding Down", start_time: "19:00", end_time: "21:00", task_class: "Break", sub_class: null },
-  { name: "Book Reading & Self Reflection", start_time: "21:00", end_time: "22:00", task_class: "Book_Reading", sub_class: null },
-  { name: "Sleep & Regeneration", start_time: "22:00", end_time: "06:00", task_class: "Sleep", sub_class: null },
-];
+const CLASS_LABELS: Record<string, string> = {
+  ...Object.fromEntries(DEFAULT_CLASSES.map(c => [c.value, c.label])),
+  Work: "Project / Work",
+  Unspecified: "Other",
+};
+
+const classLabel = (value: string) => CLASS_LABELS[value] ?? value.replace(/_/g, " ");
+
+// Generic example day (also covered by tests/integration/test_day_template.py).
+const GUIDELINE_SCHEDULE: EditableTask[] = dayTemplate as EditableTask[];
 
 function StatCard({ label, value, sub, icon: Icon, color }: {
   label: string; value: string | number; sub?: string;
@@ -150,7 +141,7 @@ function TaskRow({
         </button>
 
         {/* Time */}
-        <div style={{ minWidth: "80px" }}>
+        <div className="task-time" style={{ minWidth: "80px" }}>
           <div style={{ fontSize: "12px", color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}>
             {task.start_time}
           </div>
@@ -161,20 +152,20 @@ function TaskRow({
         <div style={{ width: "3px", height: "24px", borderRadius: "2px", background: color, flexShrink: 0 }} />
 
         {/* Main Info */}
-        <div style={{ flex: 1, display: "flex", gap: "8px", alignItems: "center" }}>
+        <div style={{ flex: 1, minWidth: 0, display: "flex", flexWrap: "wrap", gap: "4px 8px", alignItems: "center" }}>
           {isActive && <span className="pulse" style={{
             width: "6px", height: "6px", borderRadius: "50%",
             background: "var(--accent)", display: "inline-block",
           }} />}
           <span style={{
-            fontSize: "13px", fontWeight: 500,
+            fontSize: "13px", fontWeight: 500, overflowWrap: "anywhere",
             color: task.completed ? "var(--text-muted)" : "var(--text)",
             textDecoration: task.completed ? "line-through" : "none",
           }}>{task.task}</span>
           <span style={{
             fontSize: "10px", padding: "2px 8px", borderRadius: "20px",
             background: `${color}22`, color, fontWeight: 500,
-          }}>{task.task_class.replace(/_/g, " ")}</span>
+          }}>{classLabel(task.task_class)}</span>
           <span style={{ marginLeft: "auto", fontSize: "12px", color: "var(--text-muted)" }}>
             {task.points}pts
           </span>
@@ -235,7 +226,7 @@ function TaskRow({
               Milestones & Subtasks
             </span>
             <div style={{ display: "flex", gap: "8px" }}>
-              {SUBTASKS.map(({ key, label, apiName }) => {
+              {SUBTASKS.map(({ key, label }) => {
                 const done = task[key as keyof Task] as boolean;
                 return (
                   <button
@@ -262,9 +253,15 @@ function TaskRow({
   );
 }
 
-export default function DashboardClient({ initialTasks, initialMetrics }: Props) {
+export default function DashboardClient({ initialTasks, initialMetrics, topSlot }: Props) {
   const [taskData, setTaskData] = useState(initialTasks);
   const [metrics, setMetrics] = useState(initialMetrics);
+
+  // When the page reloads data (e.g. after a demo control), adopt the new props.
+  const [seenTasks, setSeenTasks] = useState(initialTasks);
+  const [seenMetrics, setSeenMetrics] = useState(initialMetrics);
+  if (initialTasks !== seenTasks) { setSeenTasks(initialTasks); setTaskData(initialTasks); }
+  if (initialMetrics !== seenMetrics) { setSeenMetrics(initialMetrics); setMetrics(initialMetrics); }
   const [isPlanning, setIsPlanning] = useState(false);
   const [planTasks, setPlanTasks] = useState<EditableTask[]>([]);
   const [planError, setPlanError] = useState<string | null>(null);
@@ -333,7 +330,7 @@ export default function DashboardClient({ initialTasks, initialMetrics }: Props)
     } catch (e) {
       console.error("Toggle complete failed", e);
     }
-  }, [taskData]);
+  }, []);
 
   const handleAttentionChange = useCallback(async (task: Task, attention: number) => {
     // Optimistic UI update for smoothness
@@ -369,9 +366,9 @@ export default function DashboardClient({ initialTasks, initialMetrics }: Props)
     }
   }, []);
 
-  const handleCheckIn = useCallback(async (relapsed: boolean) => {
+  const handleCheckIn = useCallback(async (keptCommitment: boolean) => {
     try {
-      const res = await api.analytics.checkIn(relapsed);
+      const res = await api.analytics.checkIn(keptCommitment);
       setMetrics(res);
     } catch (e) {
       console.error("Check-in failed", e);
@@ -390,9 +387,7 @@ export default function DashboardClient({ initialTasks, initialMetrics }: Props)
       })));
     } else {
       setPlanTasks([
-        { name: "Yoga and Wellness", start_time: "06:00", end_time: "07:00", task_class: "Yoga_and_Wellness", sub_class: null },
-        { name: "Academics Selfstudy", start_time: "07:00", end_time: "09:00", task_class: "Academics_Selfstudy", sub_class: null },
-        { name: "Project Development", start_time: "09:00", end_time: "10:00", task_class: "Project", sub_class: null },
+        { name: "", start_time: "09:00", end_time: "10:00", task_class: "Academics_Selfstudy", sub_class: null },
       ]);
     }
     setPlanError(null);
@@ -414,7 +409,7 @@ export default function DashboardClient({ initialTasks, initialMetrics }: Props)
       const endH = (h + 1) % 24;
       nextEnd = `${String(endH).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
     }
-    setPlanTasks([...planTasks, { name: "", start_time: nextStart, end_time: nextEnd, task_class: "Unspecified", sub_class: null }]);
+    setPlanTasks([...planTasks, { name: "", start_time: nextStart, end_time: nextEnd, task_class: "Academics_Selfstudy", sub_class: null }]);
   };
 
   const removeTimeBlock = (index: number) => {
@@ -473,12 +468,13 @@ export default function DashboardClient({ initialTasks, initialMetrics }: Props)
 
   const completedCount = taskData?.completed ?? 0;
   const totalCount = taskData?.total ?? 0;
+  const ratedCount = taskData?.tasks.filter(t => t.be_attentive).length ?? 0;
   const pct = taskData?.completion_pct ?? 0;
 
   return (
-    <div style={{ padding: "32px", maxWidth: "1100px", margin: "0 auto" }}>
+    <div className="page">
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "32px" }}>
+      <div className="page-header">
         <div>
           <div style={{ fontSize: "12px", color: "var(--text-muted)", marginBottom: "4px", textTransform: "uppercase", letterSpacing: "0.1em" }}>
             {today}
@@ -488,7 +484,7 @@ export default function DashboardClient({ initialTasks, initialMetrics }: Props)
           </h1>
         </div>
         {!isPlanning && (
-          <div style={{ display: "flex", gap: "10px" }}>
+          <div className="header-actions">
             <button
               onClick={() => setShowCheckInModal(true)}
               style={{
@@ -546,19 +542,21 @@ export default function DashboardClient({ initialTasks, initialMetrics }: Props)
         )}
       </div>
 
+      {topSlot}
+
       {/* PLANNER INTERFACE */}
       {isPlanning ? (
-        <div className="glass fade-in" style={{ padding: "28px", marginBottom: "32px", position: "relative", border: "1px solid rgba(124, 92, 252, 0.2)" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+        <div className="glass fade-in planner-card" style={{ marginBottom: "32px", position: "relative", border: "1px solid rgba(124, 92, 252, 0.2)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", marginBottom: "20px" }}>
             <div>
               <h2 style={{ fontSize: "18px", fontWeight: 600, display: "flex", alignItems: "center", gap: "8px" }}>
-                <Sparkles size={16} style={{ color: "var(--accent)" }} /> Configure Today's Schedule
+                <Sparkles size={16} style={{ color: "var(--accent)" }} /> Configure Today&apos;s Schedule
               </h2>
               <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "4px" }}>
                 Define your timeblocks. Feynlist will track performance per timeblock.
               </div>
             </div>
-            <div style={{ display: "flex", gap: "10px" }}>
+            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
               <button
                 onClick={loadGuideline}
                 style={{
@@ -572,7 +570,7 @@ export default function DashboardClient({ initialTasks, initialMetrics }: Props)
                   cursor: "pointer",
                 }}
               >
-                Load Guidelines Template
+                Load example day
               </button>
               <button
                 onClick={addTimeBlock}
@@ -614,11 +612,8 @@ export default function DashboardClient({ initialTasks, initialMetrics }: Props)
             {planTasks.map((t, idx) => (
               <div
                 key={idx}
+                className="plan-row"
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 100px 100px 180px 40px",
-                  gap: "10px",
-                  alignItems: "center",
                   padding: "10px",
                   background: "rgba(255,255,255,0.01)",
                   borderRadius: "8px",
@@ -775,11 +770,13 @@ export default function DashboardClient({ initialTasks, initialMetrics }: Props)
       ) : null}
 
       {/* Stat cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px", marginBottom: "28px" }}>
+      <div className="grid-stats" style={{ marginBottom: "28px" }}>
         <StatCard label="Discipline" value={`${metrics?.discipline?.toFixed(0) ?? 0}%`}
           sub={(metrics?.discipline ?? 0) > 70 ? "↑ On track" : "Needs work"}
           icon={Target} color="#7c5cfc" />
-        <StatCard label="Alertness" value={`${metrics?.alertness?.toFixed(0) ?? 0}%`}
+        <StatCard label="Alertness"
+          value={ratedCount > 0 ? `${metrics?.alertness?.toFixed(0) ?? 0}%` : "—"}
+          sub={ratedCount > 0 ? `Focus on ${ratedCount} rated task${ratedCount === 1 ? "" : "s"}` : "Rate a task's focus to start"}
           icon={Brain} color="#818cf8" />
         
         {/* Clickable Aura Card */}
@@ -790,8 +787,11 @@ export default function DashboardClient({ initialTasks, initialMetrics }: Props)
           onMouseLeave={e => e.currentTarget.style.transform = "translateY(0)"}
           title="Click to learn how Aura is computed!"
         >
-          <StatCard label="Aura (Click for Info)" value={(metrics?.aura ?? 0).toFixed(2)}
-            sub={`${metrics?.retention_streak ?? 0}d streak · Info`}
+          <StatCard label="Aura (Click for Info)"
+            value={(metrics?.retention_streak ?? 0) > 0 ? (metrics?.aura ?? 0).toFixed(2) : "—"}
+            sub={(metrics?.retention_streak ?? 0) > 0
+              ? `${metrics?.retention_streak}d consistency streak · Info`
+              : "Starts after your first counted day · Info"}
             icon={Flame} color="#f472b6" />
         </div>
 
@@ -801,9 +801,9 @@ export default function DashboardClient({ initialTasks, initialMetrics }: Props)
           style={{ cursor: "pointer", transition: "transform 0.15s" }}
           onMouseEnter={e => e.currentTarget.style.transform = "translateY(-2px)"}
           onMouseLeave={e => e.currentTarget.style.transform = "translateY(0)"}
-          title="Click to learn how PS Hours are computed!"
+          title="Click to learn how Study Hours are computed"
         >
-          <StatCard label="PS Hours (Click Info)" value={`${metrics?.ps_hrs?.toFixed(1) ?? 0}h`}
+          <StatCard label="Study Hours (Click Info)" value={`${metrics?.ps_hrs?.toFixed(1) ?? 0}h`}
             sub="Explain metric"
             icon={Zap} color="#34d399" />
         </div>
@@ -828,22 +828,27 @@ export default function DashboardClient({ initialTasks, initialMetrics }: Props)
             </button>
           </div>
           <p style={{ marginBottom: "8px", fontSize: "12.5px", opacity: 0.9 }}>
-            <strong>Aura</strong> represents your cognitive momentum and focus consistency. Unlike binary metrics, it measures how deeply and regularly you execute your scheduled deep-work guidelines.
+            <strong>Aura</strong> is a simple momentum score: it grows when you start what you planned,
+            keep your commitment day after day, and (if you plan Study blocks) finish your study time.
           </p>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", fontSize: "12px", opacity: 0.85 }}>
+          <p style={{ marginBottom: "10px", fontSize: "12px", fontFamily: "monospace", opacity: 0.9 }}>
+            Aura = √(Discipline ÷ 100) × √(Study factor) × ln(1 + consistency streak)
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "16px", fontSize: "12px", opacity: 0.85 }}>
             <div>
-              <span style={{ color: "#5eead4" }}><strong>Factors affecting Aura:</strong></span>
+              <span style={{ color: "#5eead4" }}><strong>The parts:</strong></span>
               <ul style={{ paddingLeft: "14px", marginTop: "4px" }}>
-                <li><strong>Discipline</strong> (Starting scheduled timeblocks on time)</li>
-                <li><strong>PS Hours</strong> (Problem Solving study block density)</li>
-                <li><strong>Retention Streak</strong> (Days without deviation resets)</li>
+                <li><strong>Discipline</strong>: share of finished blocks you started.</li>
+                <li><strong>Study factor</strong>: 0.2 → 1.0 as completed Study hours reach 2h/day. It&apos;s 1.0 if you plan no Study blocks, so non-students aren&apos;t penalised.</li>
+                <li><strong>Consistency streak</strong>: days in a row you kept your commitment (check-in &quot;Yes&quot; or at least half of your plan done).</li>
               </ul>
             </div>
             <div>
-              <span style={{ color: "#5eead4" }}><strong>Score mechanics:</strong></span>
+              <span style={{ color: "#5eead4" }}><strong>What to expect:</strong></span>
               <ul style={{ paddingLeft: "14px", marginTop: "4px" }}>
-                <li><strong>Increases</strong> by maintaining high discipline, studying consistently, and protecting your streak.</li>
-                <li><strong>Decreases</strong> to 0 immediately if you log a streak-breaking deviation, or declines gradually if study volume drops.</li>
+                <li>Shows &quot;—&quot; until your first counted day (ln(1 + 0) = 0).</li>
+                <li>With a perfect day it&apos;s about 0.7 after 1 day, 1.4 after 3 and 2.1 after 7. It grows slowly, with no cap.</li>
+                <li>A &quot;Not today&quot; check-in or a day without keeping your plan resets the streak, so Aura restarts from zero.</li>
               </ul>
             </div>
           </div>
@@ -859,7 +864,7 @@ export default function DashboardClient({ initialTasks, initialMetrics }: Props)
         }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
             <strong style={{ color: "#34d399", display: "flex", alignItems: "center", gap: "6px" }}>
-              <Zap size={15} /> Understanding Problem-Solving (PS) Hours
+              <Zap size={15} /> Understanding Study Hours
             </strong>
             <button 
               onClick={() => setShowPSInfo(false)}
@@ -869,21 +874,21 @@ export default function DashboardClient({ initialTasks, initialMetrics }: Props)
             </button>
           </div>
           <p style={{ marginBottom: "8px", fontSize: "12.5px", opacity: 0.9 }}>
-            <strong>Problem-Solving (PS) Hours</strong> measures the time spent on dedicated, high-concentration cognitive work. It represents a commitment to deliberate practice and mastery.
+            <strong>Study Hours</strong> (called PS, problem-solving, hours in the code) count focused study time you actually finished.
           </p>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", fontSize: "12px", opacity: 0.85 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "16px", fontSize: "12px", opacity: 0.85 }}>
             <div>
               <span style={{ color: "#5eead4" }}><strong>How it is calculated:</strong></span>
               <ul style={{ paddingLeft: "14px", marginTop: "4px" }}>
-                <li>Sum of scheduled durations (in hours) of all <strong>completed</strong> <em>Academics Selfstudy</em> blocks.</li>
-                <li>Duration is parsed directly from your timeblocks (e.g. <code>07:00–09:00 = 2.0h</code>).</li>
+                <li>Sum of the planned durations of <em>Study</em> blocks you marked <strong>Complete</strong>.</li>
+                <li>Duration comes from the time block (e.g. <code>07:00–09:00 = 2.0h</code>).</li>
               </ul>
             </div>
             <div>
               <span style={{ color: "#5eead4" }}><strong>Impact and Role:</strong></span>
               <ul style={{ paddingLeft: "14px", marginTop: "4px" }}>
-                <li><strong>Only counts</strong> when the overall task complete milestone is fully checked off.</li>
-                <li><strong>Directly influences Aura</strong>, ensuring study volume acts as a powerful momentum multiplier.</li>
+                <li>Feeds Aura&apos;s study factor (full at 2h a day).</li>
+                <li>If you don&apos;t plan Study blocks (e.g. you&apos;re not a student), it doesn&apos;t affect Aura.</li>
               </ul>
             </div>
           </div>
@@ -895,7 +900,7 @@ export default function DashboardClient({ initialTasks, initialMetrics }: Props)
       {/* Progress bar */}
       <div className="glass" style={{ padding: "16px 20px", marginBottom: "16px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "10px" }}>
-          <span style={{ fontSize: "13px", fontWeight: 500 }}>Today's Progress</span>
+          <span style={{ fontSize: "13px", fontWeight: 500 }}>Today&apos;s Progress</span>
           <span style={{ fontSize: "13px", color: "var(--accent)" }}>
             {completedCount}/{totalCount} tasks · {pct.toFixed(0)}%
           </span>
@@ -914,7 +919,9 @@ export default function DashboardClient({ initialTasks, initialMetrics }: Props)
         {!taskData || taskData.tasks.length === 0 ? (
           <div style={{ textAlign: "center", padding: "60px", color: "var(--text-muted)" }}>
             <Clock size={32} style={{ marginBottom: "12px", opacity: 0.4 }} />
-            <div style={{ fontSize: "14px" }}>No tasks scheduled for today</div>
+            <div style={{ fontSize: "14px" }}>
+              No tasks scheduled for today
+            </div>
             <div style={{ fontSize: "12px", marginTop: "4px", opacity: 0.6 }}>
               Quickly lay out your time blocks using the planner
             </div>
@@ -941,7 +948,7 @@ export default function DashboardClient({ initialTasks, initialMetrics }: Props)
                 e.currentTarget.style.color = "var(--accent)";
               }}
             >
-              Build Today's Schedule
+              Build Today&apos;s Schedule
             </button>
           </div>
         ) : (
@@ -975,7 +982,7 @@ export default function DashboardClient({ initialTasks, initialMetrics }: Props)
           }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
               <span style={{ fontSize: "15px", fontWeight: 700, color: "var(--text)", display: "flex", alignItems: "center", gap: "8px" }}>
-                <Flame size={16} style={{ color: "#f472b6" }} /> Daily Check-In (Private)
+                <Flame size={16} style={{ color: "#f472b6" }} /> Daily Check-In
               </span>
               <button
                 onClick={() => setShowCheckInModal(false)}
@@ -988,8 +995,12 @@ export default function DashboardClient({ initialTasks, initialMetrics }: Props)
               </button>
             </div>
             
-            <p style={{ fontSize: "13px", color: "var(--text)", lineHeight: 1.5, marginBottom: "20px" }}>
-              Did you masturbate today? (Your response strictly resets or extends your streak privately. It will not be logged on public schedules or task lists).
+            <p style={{ fontSize: "13px", color: "var(--text)", lineHeight: 1.5, marginBottom: "8px" }}>
+              Did you keep your commitment to today&apos;s plan?
+            </p>
+            <p style={{ fontSize: "12px", color: "var(--text-muted)", lineHeight: 1.5, marginBottom: "20px" }}>
+              Your consistency streak grows on days you tap &quot;Yes&quot; or finish at least half of your planned tasks.
+              &quot;Not today&quot; resets it to zero. That&apos;s fine; tomorrow is a fresh start.
             </p>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "16px" }}>
@@ -999,15 +1010,15 @@ export default function DashboardClient({ initialTasks, initialMetrics }: Props)
                   setShowCheckInModal(false);
                 }}
                 style={{
-                  background: metrics?.relapsed ? "rgba(239, 68, 68, 0.18)" : "rgba(255, 255, 255, 0.03)",
-                  color: metrics?.relapsed ? "#ef4444" : "var(--text-muted)",
-                  border: metrics?.relapsed ? "1px solid rgba(239, 68, 68, 0.4)" : "1px solid rgba(255, 255, 255, 0.06)",
+                  background: metrics?.kept_commitment === true ? "rgba(52, 211, 153, 0.18)" : "rgba(255, 255, 255, 0.03)",
+                  color: metrics?.kept_commitment === true ? "#34d399" : "var(--text-muted)",
+                  border: metrics?.kept_commitment === true ? "1px solid rgba(52, 211, 153, 0.4)" : "1px solid rgba(255, 255, 255, 0.06)",
                   padding: "12px", borderRadius: "10px", fontSize: "13px", fontWeight: 600,
                   cursor: "pointer", transition: "all 0.15s", display: "flex", flexDirection: "column", alignItems: "center", gap: "6px"
                 }}
               >
-                <span style={{ fontSize: "16px" }}>😞</span>
-                Yes (Relapsed)
+                <span style={{ fontSize: "16px" }}>✅</span>
+                Yes, I kept it
               </button>
               <button
                 onClick={() => {
@@ -1015,15 +1026,15 @@ export default function DashboardClient({ initialTasks, initialMetrics }: Props)
                   setShowCheckInModal(false);
                 }}
                 style={{
-                  background: (metrics && !metrics.relapsed) ? "rgba(52, 211, 153, 0.18)" : "rgba(255, 255, 255, 0.03)",
-                  color: (metrics && !metrics.relapsed) ? "#34d399" : "var(--text-muted)",
-                  border: (metrics && !metrics.relapsed) ? "1px solid rgba(52, 211, 153, 0.4)" : "1px solid rgba(255, 255, 255, 0.06)",
+                  background: metrics?.kept_commitment === false ? "rgba(251, 191, 36, 0.14)" : "rgba(255, 255, 255, 0.03)",
+                  color: metrics?.kept_commitment === false ? "#fbbf24" : "var(--text-muted)",
+                  border: metrics?.kept_commitment === false ? "1px solid rgba(251, 191, 36, 0.4)" : "1px solid rgba(255, 255, 255, 0.06)",
                   padding: "12px", borderRadius: "10px", fontSize: "13px", fontWeight: 600,
                   cursor: "pointer", transition: "all 0.15s", display: "flex", flexDirection: "column", alignItems: "center", gap: "6px"
                 }}
               >
-                <span style={{ fontSize: "16px" }}>✨</span>
-                No (Clean)
+                <span style={{ fontSize: "16px" }}>🌙</span>
+                Not today
               </button>
             </div>
 

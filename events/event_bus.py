@@ -64,7 +64,12 @@ class EventBus:
         return decorator
 
     def subscribe_handler(self, event_type: EventType, handler: EventHandler) -> None:
-        """Register a handler programmatically (non-decorator version)."""
+        """Register a handler programmatically (non-decorator version).
+        Idempotent per handler name, so wiring twice doesn't double-deliver."""
+        name = getattr(handler, "__name__", None)
+        self._handlers[event_type] = [
+            h for h in self._handlers[event_type] if getattr(h, "__name__", None) != name
+        ]
         self._handlers[event_type].append(handler)
         logger.debug(f"EventBus: registered handler for {event_type.value}")
 

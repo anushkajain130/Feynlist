@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 from core.exceptions import ToolExecutionError
 from data.repositories.task_repo import task_repo
 from tools.base_tool import BaseTool, ToolContext
+from core import clock
 
 
 # =============================================================================
@@ -53,7 +54,7 @@ class GetTimeContextTool(BaseTool):
     async def execute(
         self, input: GetTimeContextInput, context: ToolContext
     ) -> GetTimeContextOutput:
-        now = datetime.now()
+        now = clock.now()
         today = now.date()
         now_time = now.time()
 
